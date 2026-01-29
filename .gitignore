@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environment
+.venv/
+venv/
+
+# IDE specific
+.vscode/
+.idea/
+
+# Database files (if you ever use local ones)
+*.db
+*.sqlite3
