@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNN Defense Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .mobile-frame {
+            max-width: 400px; margin: 20px auto; background: #fff; min-height: 800px;
+            border: 14px solid #1f2937; border-radius: 45px; overflow: hidden; position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+        }
+        .notch {
+            width: 140px; height: 30px; background: #1f2937; margin: 0 auto;
+            border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; 
+            position: absolute; left: 50%; transform: translateX(-50%); top: 0; z-index: 50;
+        }
+    </style>
+</head>
+<body>
+
+<div class="mobile-frame">
+    <div class="notch"></div>
+
+    <div class="bg-blue-600 pt-12 pb-6 px-6 text-white shadow-md relative z-10">
+        <div class="flex items-center gap-3">
+            <a href="index.html" class="text-xl hover:opacity-80">←</a>
+            <h1 class="font-bold text-lg">Send to Mobile</h1>
+        </div>
+        <p class="text-xs opacity-80 mt-1 pl-6">Protected by Graph Neural Network</p>
+    </div>
+
+    <div id="input-screen" class="p-6 relative z-0">
+        
+        <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg mb-6">
+            <p class="text-[10px] font-bold text-yellow-700 uppercase mb-2">🎓 Demo Mode</p>
+            <select id="scenario-selector" onchange="autoFill()" class="w-full text-sm p-2 border rounded bg-white cursor-pointer">
+                <option value="clean">🟢 Scenario 1: Legit Transfer</option>
+                <option value="mule">🔴 Scenario 2: Money Mule (Star Topology)</option>
+                <option value="ghost">🔴 Scenario 3: Synthetic Identity (Device Farm)</option>
+            </select>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase">Mobile Number</label>
+                <input type="text" id="phone" class="w-full p-4 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-blue-500 transition" value="9820011223">
+                <p class="text-[10px] text-gray-400 mt-1" id="network-status">Network Status: Verified User</p>
+            </div>
+
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase">Amount (₹)</label>
+                <input type="number" id="amount" class="w-full p-4 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-blue-500 transition" value="1500">
+            </div>
+
+            <button onclick="processPayment()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition mt-4 transform active:scale-95">
+                Pay Securely
+            </button>
+        </div>
+    </div>
+
+    <div id="loading-screen" class="hidden h-full flex flex-col items-center justify-center bg-white absolute top-0 w-full z-20">
+        <div class="animate-spin w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full mb-4"></div>
+        <h2 class="font-bold text-gray-800">Scanning Graph Topology...</h2>
+        <p class="text-xs text-gray-500 mt-2">Checking for 2-hop cycles & Fan-in</p>
+    </div>
+
+    <div id="result-screen" class="hidden h-full flex flex-col items-center justify-center bg-white absolute top-0 w-full z-30 p-6 text-center">
+        <div id="res-icon" class="text-6xl mb-4"></div>
+        <h2 id="res-title" class="text-2xl font-bold mb-2"></h2>
+        <p id="res-msg" class="text-gray-500 mb-6"></p>
+
+        <div id="evidence-box" class="bg-red-50 p-4 rounded-xl border border-red-100 w-full text-left hidden">
+            <p class="text-[10px] font-bold text-red-500 uppercase">Graph Neural Network Verdict</p>
+            <p class="text-sm font-bold text-gray-800 mt-1" id="gnn-verdict"></p>
+            <p class="text-xs text-gray-600 mt-1 bg-white p-2 rounded border border-red-100" id="gnn-reason"></p>
+        </div>
+
+        <button onclick="location.reload()" class="mt-8 w-full bg-gray-900 text-white py-3 rounded-xl font-bold">Try Again</button>
+    </div>
+
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000/analyze_transaction/";
+
+    function autoFill() {
+        const type = document.getElementById('scenario-selector').value;
+        const phoneInput = document.getElementById('phone');
+        const amtInput = document.getElementById('amount');
+        const statusText = document.getElementById('network-status');
+
+        if (type === 'clean') {
+            phoneInput.value = "9820011223"; 
+            amtInput.value = "1500";
+            statusText.innerText = "Network Status: Verified User";
+        } else if (type === 'mule') {
+            phoneInput.value = "9090909090"; 
+            amtInput.value = "48000"; 
+            statusText.innerText = "Network Status: High Traffic Node (Mule)";
+        } else {
+            phoneInput.value = "8888888888"; 
+            amtInput.value = "200000";
+            statusText.innerText = "Network Status: Synthetic Device Farm";
+        }
+    }
+
+    function processPayment() {
+        const type = document.getElementById('scenario-selector').value;
+        
+        // Show Loading
+        document.getElementById('loading-screen').classList.remove('hidden');
+
+        let payload = {};
+        if (type === 'clean') {
+            payload = { customer_id: 101, amount: 1500, device_id: "My_iPhone", beneficiary_account: "Friend_ACC", account_age_days: 500 };
+        } else if (type === 'mule') {
+            payload = { customer_id: 8821, amount: 49000, device_id: "Android_X", beneficiary_account: "MULE_ACC_99", account_age_days: 365 };
+        } else {
+            payload = { customer_id: 9999, amount: 200000, device_id: "Android_X_11", beneficiary_account: "Ghost_ACC", account_age_days: 2 };
+        }
+
+        fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => showResult(data))
+        .catch(err => {
+            alert("API Error: Make sure api.py is running!");
+            location.reload();
+        });
+    }
+
+    function showResult(data) {
+        document.getElementById('loading-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.remove('hidden');
+
+        const evBox = document.getElementById('evidence-box');
+
+        if (data.status === "APPROVED") {
+            document.getElementById('res-icon').innerHTML = "✅";
+            document.getElementById('res-title').innerText = "Sent Successfully";
+            document.getElementById('res-msg').innerText = "Transaction ID: TXN_88292";
+            evBox.classList.add('hidden');
+        } else {
+            document.getElementById('res-icon').innerHTML = "🚫";
+            document.getElementById('res-title').innerText = "Transfer Failed";
+            document.getElementById('res-msg').innerText = "Security Risk Detected";
+            evBox.classList.remove('hidden');
+
+            const gnnData = data.model_breakdown.Network_Model;
+            document.getElementById('gnn-verdict').innerText = gnnData.verdict;
+            document.getElementById('gnn-reason').innerText = gnnData.details[0] || "Graph Topology Risk";
+        }
+    }
+</script>
+
+</body>
+</html>

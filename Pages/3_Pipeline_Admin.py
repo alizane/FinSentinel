@@ -1,104 +1,74 @@
 import streamlit as st
 from sqlalchemy import create_engine, text
+import pandas as pd
 import subprocess
 import sys
-import pandas as pd
 
-# --- DATABASE CONFIGURATION ---
-DB_USER = 'postgres'
-DB_PASSWORD = 'Hiking%40786'
-DB_HOST = 'localhost'
-DB_PORT = '5432'
-DB_NAME = 'fraud_detection_db'
+st.set_page_config(page_title="Pipeline Admin", layout="wide", page_icon="⚙️")
+DB_CONN = 'postgresql://postgres:Hiking%40786@localhost:5432/fraud_detection_db'
+engine = create_engine(DB_CONN)
 
-try:
-    engine = create_engine(f'postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}')
-except Exception as e:
-    st.error(f"Failed to connect to database: {e}")
-    st.stop()
+st.title("⚙️ Data Pipeline Control Panel")
 
-def get_table_counts():
-    """Fetches the current row counts from raw transactions and profile tables."""
-    counts = {
-        "transactions": 0,
-        "profile_beneficiary": 0,
-        "profile_location": 0,
-    }
+col_btn, col_info = st.columns([1, 3])
+with col_btn:
+    if st.button("🚀 Run Full System Reset", type="primary"):
+        with st.spinner("Resetting DB, Generating Data & Rebuilding Views..."):
+            try:
+                process = subprocess.run([sys.executable, "generate_data.py"], capture_output=True, text=True)
+                if process.returncode == 0:
+                    st.success("✅ System Reset Complete!")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed.")
+                    st.code(process.stderr)
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+with col_info:
+    st.info("Drops tables, generates 100k+ rows, injects 6 Fraud Scenarios, calculates profiles.")
+
+st.divider()
+
+# Status
+def get_count(table):
     try:
         with engine.connect() as conn:
-            counts["transactions"] = conn.execute(text("SELECT COUNT(*) FROM transactions")).scalar()
-            counts["profile_beneficiary"] = conn.execute(text("SELECT COUNT(*) FROM profile_customer_beneficiary")).scalar()
-            counts["profile_location"] = conn.execute(text("SELECT COUNT(*) FROM profile_customer_location")).scalar()
-    except Exception as e:
-        st.error(f"Error querying table counts: {e}")
-    return counts
+            return conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
+    except:
+        return 0
 
-def fetch_table_preview(table_name, limit=5):
-    """Fetches the first few rows of a table as a DataFrame."""
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Transactions", f"{get_count('transactions'):,}")
+c2.metric("Beneficiary Profiles", f"{get_count('profile_beneficiary'):,}")
+c3.metric("Timeline Profiles", f"{get_count('profile_timeline'):,}")
+c4.metric("Device Profiles", f"{get_count('profile_device_usage'):,}")
+
+st.divider()
+
+# Feature Store Viewer
+st.subheader("📊 Feature Engineering Output (Profile Tables)")
+tab1, tab2, tab3, tab4 = st.tabs(["Beneficiary Profile", "Timeline Profile", "Device Profile", "Raw Transactions"])
+
+with tab1:
+    st.write("Tracks A -> B relationship strength (Daily/Weekly/Monthly/Yearly Avgs).")
     try:
-        query = f"SELECT * FROM {table_name} LIMIT {limit}"
-        with engine.connect() as conn:
-            df = pd.read_sql(text(query), conn)
-        return df
-    except Exception as e:
-        st.error(f"Error fetching preview for {table_name}: {e}")
-        return pd.DataFrame()
+        st.dataframe(pd.read_sql("SELECT * FROM profile_beneficiary LIMIT 50", engine), use_container_width=True)
+    except: st.warning("No data.")
 
-st.set_page_config(layout="wide")
-st.title("Data Pipeline Control Panel")
-
-if st.button("Run Pipeline (Refresh Profiles)"):
-    st.info("Starting pipeline refresh...")
+with tab2:
+    st.write("Tracks Global Spending Velocity per Customer.")
     try:
-        process = subprocess.run(
-            [sys.executable, "run_pipeline.py"],
-            capture_output=True, text=True, check=True
-        )
-        st.success("Pipeline refresh completed successfully!")
-        st.code(process.stdout)
-    except Exception as e:
-        st.error(f"Pipeline failed to run: {e}")
+        st.dataframe(pd.read_sql("SELECT * FROM profile_timeline LIMIT 50", engine), use_container_width=True)
+    except: st.warning("No data.")
 
-st.divider()
+with tab3:
+    st.write("Tracks Digital Fingerprints.")
+    try:
+        st.dataframe(pd.read_sql("SELECT * FROM profile_device_usage LIMIT 50", engine), use_container_width=True)
+    except: st.warning("No data.")
 
-# --- Pipeline Status Dashboard ---
-st.header("Pipeline Status Dashboard")
-counts = get_table_counts()
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("Raw Data Tables")
-    st.metric(label="Total Raw Transactions", value=f"{counts['transactions']:,}")
-
-with col2:
-    st.subheader("Profile / Output Tables")
-    st.metric(label="Customer-Beneficiary Profiles", value=f"{counts['profile_beneficiary']:,}")
-    st.metric(label="Customer-Location Profiles", value=f"{counts['profile_location']:,}")
-
-st.button("Refresh Status")
-
-st.divider()
-
-# --- Fraud Detection Scenarios ---
-st.header("📈 Fraud Detection Scenarios")
-scenario_data = {
-    "Scenario": ["Amount Spike", "New Beneficiary", "Geo-Location Anomaly"],
-    "Rule / Logic": [
-        "Is transaction amount > profile's `monthly_avg_amount`?",
-        "Is the beneficiary not found in the `profile_customer_beneficiary` table?",
-        "Is the transaction city not found in the `profile_customer_location` table?"
-    ]
-}
-st.dataframe(pd.DataFrame(scenario_data), use_container_width=True)
-
-st.divider()
-
-# --- Data Table Previews ---
-st.header("📄 Data Table Previews")
-
-with st.expander("Output Table Preview: `profile_customer_beneficiary` (with all time-based stats)"):
-    st.dataframe(fetch_table_preview("profile_customer_beneficiary"), use_container_width=True)
-
-with st.expander("Output Table Preview: `profile_customer_location` (with all time-based stats)"):
-    st.dataframe(fetch_table_preview("profile_customer_location"), use_container_width=True)
-    
+with tab4:
+    try:
+        st.dataframe(pd.read_sql("SELECT * FROM transactions ORDER BY transaction_id DESC LIMIT 50", engine), use_container_width=True)
+    except: st.warning("No data.")
