@@ -3,15 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 from sqlalchemy import create_engine, text
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 
-# --- 1. IMPORT STRICT MODEL CLASSES ---
+# ==========================================
+#   SECTION 1: SETUP & CONFIGURATION
+# ==========================================
+
 from judges.pattern_model import PatternModel
 from judges.anomaly_model import AnomalyModel
 from judges.network_model import NetworkModel
 
-# --- 2. CONFIG ---
 DB_CONN = 'postgresql://postgres:Hiking%40786@localhost:5432/fraud_detection_db'
 engine = create_engine(DB_CONN)
 
@@ -25,13 +27,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 3. MODELS ---
 try:
     pattern_engine = PatternModel()
     anomaly_engine = AnomalyModel()
     network_engine = NetworkModel(DB_CONN)
-    print("✅ Models Loaded")
-except: print("⚠️ Models missing")
+    print("✅ Models Loaded Successfully")
+except Exception as e:
+    print(f"⚠️ Warning: Models not loaded. {e}")
+
+
+# ==========================================
+#   SECTION 2: DATA MODELS
+# ==========================================
 
 class TransactionRequest(BaseModel):
     customer_id: int
@@ -48,39 +55,121 @@ class GNNTransactionRequest(BaseModel):
     is_gnn_active: bool
     scenario_type: str = "star"
 
-# --- HELPER ---
+class PatternRequest(BaseModel):
+    customer_id: int
+    amount: float
+    device_id: str
+    beneficiary_account: str
+    city: str
+    hour: int
+    is_active: bool
+    is_velocity_attack: bool = False
+    is_amount_spike: bool = False
+
+class CustomerDetailRequest(BaseModel):
+    customer_id: int
+
+
+# ==========================================
+#   SECTION 3: HELPER FUNCTIONS
+# ==========================================
+
+def get_ist_time():
+    return (datetime.utcnow() + timedelta(hours=5, minutes=30)).isoformat()
+
 def get_live_features(customer_id, amount, device_id):
     try:
-        stats = pd.read_sql(f"SELECT SUM(amount) as t, SUM(CASE WHEN payment_method_detail IN ('Rent','Electricity Bill') THEN 1 ELSE 0 END) as o FROM transactions WHERE customer_id={customer_id}", engine).iloc[0]
-        opex = (stats['o'] or 0) / ((stats['t'] or 0) + amount + 1)
-    except: opex = 0.5
-    try: 
-        users = pd.read_sql(f"SELECT COUNT(DISTINCT customer_id) FROM transactions WHERE device_id='{device_id}'", engine).iloc[0,0]
-    except: users = 1
-    return [amount, opex, users], users
+        query_hist = f"""
+            SELECT SUM(amount) as total,
+            SUM(CASE WHEN payment_method_detail IN ('Electricity Bill', 'Rent', 'Metro Recharge') THEN 1 ELSE 0 END) as opex
+            FROM transactions WHERE customer_id = {customer_id}
+        """
+        stats = pd.read_sql(query_hist, engine).iloc[0]
+        opex_ratio = (stats['opex'] or 0) / ((stats['total'] or 0) + amount + 1)
+    except:
+        opex_ratio = 0.5 
+    try:
+        q_dev = f"SELECT COUNT(DISTINCT customer_id) FROM transactions WHERE device_id = '{device_id}'"
+        users_on_dev = pd.read_sql(q_dev, engine).iloc[0, 0]
+    except:
+        users_on_dev = 1
+    return [amount, opex_ratio, users_on_dev], users_on_dev
 
-# --- MAIN TRANSACTION ENDPOINT ---
+
+# ==========================================
+#   SECTION 4: CORE ANALYSIS ENDPOINT
+# ==========================================
+
 @app.post("/analyze_transaction/")
 async def analyze_transaction(tx: TransactionRequest):
     try:
-        feats, users_on_dev = get_live_features(tx.customer_id, tx.amount, tx.device_id)
-        final_score = 0.2 # Placeholder for logic simplicity in this snippet
+        base_features, users_on_dev = get_live_features(tx.customer_id, tx.amount, tx.device_id)
+        model_features = base_features + [tx.account_age_days]
         
-        # (Your existing logic here - preserved)
-        # Assuming full logic is in your file, I'm focusing on the GNN endpoint below
+        p_pat, v_pat = pattern_engine.assess(model_features)
+        p_ano, v_ano = anomaly_engine.assess(model_features)
+        p_net, v_net, reasons_net = network_engine.investigate(
+            device_id=tx.device_id, 
+            customer_id=tx.customer_id,
+            beneficiary_account=tx.beneficiary_account, 
+            amount=tx.amount
+        )
         
-        # DB Save
-        ts = tx.timestamp if tx.timestamp else datetime.now().isoformat()
+        final_score = (p_pat * 0.4) + (p_ano * 0.3) + (p_net * 0.3)
+        status = "APPROVED"
+        fraud_flag = 0
+        fraud_type = "None"
+        
+        if final_score > 0.5 or p_net == 1.0:
+            status = "BLOCKED"
+            fraud_flag = 1
+            if p_net == 1.0:
+                if "Mule" in str(reasons_net): fraud_type = "Star Topology"
+                elif "Collision" in str(reasons_net): fraud_type = "Synthetic Identity"
+                elif "Cycle" in str(reasons_net): fraud_type = "Circular Topology"
+                else: fraud_type = "Network Anomaly"
+            elif v_ano == "Statistical Outlier" or "SHELL" in v_ano:
+                fraud_type = "Shell Operation"
+            else:
+                fraud_type = "Pattern Anomaly"
+        
+        try:
+            name_q = text(f"SELECT customer_name FROM customers WHERE customer_id = {tx.customer_id}")
+            with engine.connect() as conn:
+                res = conn.execute(name_q).fetchone()
+                cust_name = res[0] if res else f"User {tx.customer_id}"
+        except: cust_name = f"User {tx.customer_id}"
+
+        timestamp = tx.timestamp if tx.timestamp else get_ist_time()
+        insert_sql = text("""
+            INSERT INTO transactions 
+            (customer_id, customer_name, amount, timestamp, device_id, beneficiary_account, customer_account_number, city, payment_method_detail, is_fraud, fraud_type)
+            VALUES 
+            (:cust_id, :c_name, :amt, :time, :dev, :ben, :acc_num, 'Mumbai', 'API Request', :is_fraud, :f_type)
+        """)
         with engine.begin() as conn:
-            conn.execute(text("INSERT INTO transactions (customer_id, amount, timestamp, device_id, beneficiary_account, customer_account_number, city, is_fraud, fraud_type) VALUES (:c, :a, :t, :d, :b, :acc, 'Mumbai', :f, :ft)"), 
-            {"c": tx.customer_id, "a": tx.amount, "t": ts, "d": tx.device_id, "b": tx.beneficiary_account, "acc": f"ACC_{tx.customer_id}", "f": 0, "ft": "None"})
-            
-        return {"status": "APPROVED", "risk_score": 10, "model_breakdown": {}}
+            conn.execute(insert_sql, {
+                "cust_id": tx.customer_id, "c_name": cust_name, "amt": tx.amount, "time": timestamp, 
+                "dev": tx.device_id, "ben": tx.beneficiary_account, "acc_num": f"ACC_{tx.customer_id}", 
+                "is_fraud": fraud_flag, "f_type": fraud_type
+            })
+
+        return {
+            "status": status,
+            "risk_score": round(final_score * 100, 2),
+            "model_breakdown": {
+                "Pattern_Model": {"score": round(p_pat, 2), "verdict": v_pat},
+                "Anomaly_Model": {"score": p_ano, "verdict": v_ano},
+                "Network_Model": {"score": p_net, "verdict": v_net, "details": reasons_net}
+            }
+        }
     except Exception as e:
+        print(f"API Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # ==========================================
-#   GNN DEMO LOGIC (UPDATED)
+#   SECTION 5: GNN DEMO LOGIC
 # ==========================================
 
 @app.get("/get_customers")
@@ -223,3 +312,156 @@ def analyze_gnn_transaction(req: GNNTransactionRequest):
     except Exception as e:
         print(f"GNN Error: {e}")
         return {"status": "ERROR", "message": str(e), "graph_data": {"nodes": [], "edges": []}}
+
+# ==========================================
+#   SECTION 6: PATTERN RECOGNITION DEMO
+#   (Connected to Random Forest Model)
+# ==========================================
+
+# 6.1 GET CUSTOMER DETAILS (Includes Avg Spend)
+@app.post("/get_customer_details")
+def get_customer_details(req: CustomerDetailRequest):
+    try:
+        with engine.connect() as conn:
+            # Beneficiary Query with Average Spend
+            ben_q = text(f"""
+                SELECT beneficiary_account, CAST(AVG(amount) AS INT) as avg_spend 
+                FROM transactions 
+                WHERE customer_id = {req.customer_id} 
+                GROUP BY beneficiary_account 
+                ORDER BY COUNT(*) DESC LIMIT 3
+            """)
+            ben_data = conn.execute(ben_q).fetchall()
+            
+            beneficiaries = []
+            if ben_data:
+                for r in ben_data:
+                    beneficiaries.append({"account": r[0], "avg_spend": r[1]})
+            
+            # Usual Context
+            ctx_q = text(f"""
+                SELECT device_id, city, 
+                mode() WITHIN GROUP (ORDER BY EXTRACT(HOUR FROM timestamp)) as usual_hour
+                FROM transactions 
+                WHERE customer_id = {req.customer_id}
+                GROUP BY device_id, city
+                ORDER BY COUNT(*) DESC LIMIT 1
+            """)
+            ctx = conn.execute(ctx_q).fetchone()
+            
+            return {
+                "status": "success",
+                "beneficiaries": beneficiaries,
+                "usual_device": ctx[0] if ctx else "Unknown",
+                "usual_city": ctx[1] if ctx else "Unknown",
+                "usual_hour": int(ctx[2]) if ctx and ctx[2] is not None else 12
+            }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# 6.2 ANALYZE PATTERN (Fixed Toggle Logic)
+@app.post("/analyze_pattern_transaction")
+def analyze_pattern_transaction(req: PatternRequest):
+    try:
+        reasons = []
+        rf_score = 0.0
+        is_fraud = 0
+        status = "APPROVED"
+        color = "green"
+        msg = "Transaction Verified"
+        final_risk_percent = 0
+
+        # --- 1. GLOBAL TOGGLE CHECK ---
+        # If the Pattern Guard is OFF, we bypass all checks immediately.
+        if not req.is_active:
+            msg = "Pattern Guard Disabled"
+            color = "gray"
+            # final_risk_percent remains 0
+            # is_fraud remains 0
+            
+        else:
+            # Engine is ON: Proceed with Analysis
+            
+            # A. VELOCITY OVERRIDE (Demo Simulation)
+            if req.is_velocity_attack:
+                rf_score = 0.99
+                reasons.append("🚀 Velocity Spike (15 txns/sec)")
+            
+            else:
+                # B. AMOUNT SPIKE CHECK
+                avg_q = text(f"SELECT AVG(amount) FROM transactions WHERE customer_id={req.customer_id}")
+                with engine.connect() as conn:
+                    avg_val = conn.execute(avg_q).fetchone()[0] or 0
+                
+                if avg_val > 0 and req.amount > (avg_val * 5):
+                    rf_score += 0.55
+                    reasons.append(f"💰 Amount > 5x Avg")
+                elif req.amount > 200000:
+                    rf_score += 0.4
+                    reasons.append("💰 High Value")
+
+                # C. CONTEXT CHECKS
+                if req.device_id == "UNSEEN_DEVICE_X":
+                    rf_score += 0.45
+                    reasons.append("📱 New Device")
+                
+                if req.city != "HOME" and req.city != "Mumbai":
+                    rf_score += 0.50
+                    reasons.append(f"✈️ Bad Location")
+
+                # D. RANDOM FOREST SCORING
+                base_features, _ = get_live_features(req.customer_id, req.amount, req.device_id)
+                model_input = base_features + [365]
+                model_score, _ = pattern_engine.assess(model_input)
+                
+                # Combine Scores
+                final_score = (model_score * 0.3) + rf_score
+                if final_score > 0.99: final_score = 0.99
+                rf_score = final_score
+
+            # Calculate Final Score
+            final_risk_percent = int(rf_score * 100)
+
+            # Determine Verdict
+            if final_risk_percent > 50:
+                status = "BLOCKED"
+                color = "red"
+                is_fraud = 1
+                if not reasons: reasons.append("Pattern Match")
+                msg = " + ".join(reasons)
+            else:
+                status = "APPROVED"
+                msg = "Transaction Verified"
+                color = "green"
+
+        # --- 2. SAVE TO DB ---
+        timestamp = get_ist_time()
+        
+        # Safety chop for DB column limit (50 chars)
+        db_reason = msg if is_fraud else "None"
+        if len(db_reason) > 50: db_reason = db_reason[:47] + "..."
+
+        with engine.begin() as conn:
+            res = conn.execute(text(f"SELECT customer_name FROM customers WHERE customer_id = {req.customer_id}")).fetchone()
+            c_name = res[0] if res else f"User {req.customer_id}"
+            
+            conn.execute(text("""
+                INSERT INTO transactions 
+                (customer_id, customer_name, amount, timestamp, device_id, beneficiary_account, customer_account_number, city, payment_method_detail, is_fraud, fraud_type)
+                VALUES (:c, :cn, :a, :t, :d, :b, :acc, :city, 'Pattern Check', :f, :ft)
+            """), {
+                "c": req.customer_id, "cn": c_name, "a": req.amount, "t": timestamp, "d": req.device_id,
+                "b": req.beneficiary_account, "acc": f"ACC_{req.customer_id}", "city": req.city,
+                "f": is_fraud, "ft": db_reason
+            })
+
+        return {
+            "status": status, 
+            "message": msg, 
+            "score": final_risk_percent, 
+            "verdict_color": color
+        }
+
+    except Exception as e:
+        print(f"Pattern Error: {e}")
+        return {"status": "ERROR", "message": str(e), "score": 0}
