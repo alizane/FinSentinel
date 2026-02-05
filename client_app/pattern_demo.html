@@ -3,145 +3,317 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anomaly Defense Demo</title>
+    <title>Pattern Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         .mobile-frame {
-            max-width: 400px; margin: 20px auto; background: #fff; min-height: 800px;
+            max-width: 420px; margin: 20px auto; background: #fff; min-height: 900px;
             border: 14px solid #1f2937; border-radius: 45px; overflow: hidden; position: relative;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column;
         }
         .notch {
             width: 140px; height: 30px; background: #1f2937; margin: 0 auto;
             border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; 
             position: absolute; left: 50%; transform: translateX(-50%); top: 0; z-index: 50;
         }
+        
+        /* SVG GAUGE STYLES */
+        .gauge-container { width: 220px; height: 110px; margin: 0 auto; position: relative; }
+        .needle { 
+            transform-origin: 110px 110px; 
+            transition: transform 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        .risk-label { font-size: 32px; font-weight: 800; text-align: center; color: #374151; margin-top: -10px;}
     </style>
 </head>
 <body>
 
 <div class="mobile-frame">
     <div class="notch"></div>
-
-    <div class="bg-indigo-600 pt-12 pb-6 px-6 text-white shadow-md relative z-10">
+    <div class="bg-indigo-600 pt-10 pb-4 px-6 text-white shadow-md z-10">
         <div class="flex items-center gap-3">
             <a href="index.html" class="text-xl hover:opacity-80">←</a>
-            <h1 class="font-bold text-lg">Pay Vendor</h1>
+            <h1 class="font-bold text-lg">Pattern Engine</h1>
         </div>
-        <p class="text-xs opacity-80 mt-1 pl-6">Protected by Isolation Forest</p>
+        <p class="text-[10px] opacity-80 mt-1 pl-6">Random Forest • Velocity • Context</p>
     </div>
 
-    <div id="input-screen" class="p-6 relative z-0">
-        <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg mb-6">
-            <p class="text-[10px] font-bold text-yellow-700 uppercase mb-2">🎓 Demo Mode</p>
-            <select id="scenario-selector" onchange="autoFill()" class="w-full text-sm p-2 border rounded bg-white cursor-pointer">
-                <option value="clean">🟢 Scenario 1: Legit Vendor (Rent)</option>
-                <option value="shell">🔴 Scenario 2: Shell Company (Zero OpEx)</option>
+    <div class="p-5 flex-grow overflow-y-auto relative space-y-5">
+        
+        <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-center">
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Fraud Probability</p>
+            <div class="gauge-container">
+                <svg width="220" height="110" viewBox="0 0 220 110">
+                    <path d="M 10 110 A 100 100 0 0 1 210 110" fill="none" stroke="#e5e7eb" stroke-width="20" />
+                    <path d="M 10 110 A 100 100 0 0 1 70 23.4" fill="none" stroke="#22c55e" stroke-width="20" stroke-dasharray="1 2" /> 
+                    <path d="M 70 23.4 A 100 100 0 0 1 150 23.4" fill="none" stroke="#eab308" stroke-width="20" /> 
+                    <path d="M 150 23.4 A 100 100 0 0 1 210 110" fill="none" stroke="#ef4444" stroke-width="20" /> 
+                    <text x="10" y="105" font-size="10" fill="#9ca3af" font-weight="bold">0%</text>
+                    <text x="110" y="25" font-size="10" fill="#9ca3af" font-weight="bold" text-anchor="middle">50%</text>
+                    <text x="210" y="105" font-size="10" fill="#9ca3af" font-weight="bold" text-anchor="end">100%</text>
+                    <line id="svg-needle" class="needle" x1="110" y1="110" x2="10" y2="110" stroke="#1f2937" stroke-width="4" stroke-linecap="round" />
+                    <circle cx="110" cy="110" r="8" fill="#1f2937" />
+                </svg>
+            </div>
+            <div class="risk-label" id="score-val">0%</div>
+        </div>
+
+        <div class="flex items-center justify-between bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+            <div>
+                <p class="text-sm font-bold text-indigo-900">🧠 ML Pattern Guard</p>
+                <p class="text-[10px] text-indigo-600">Active Monitoring</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="pattern-toggle" class="sr-only peer" checked>
+                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
+        </div>
+
+        <div>
+            <label class="text-xs font-bold text-gray-500 uppercase ml-1">Select Customer</label>
+            <select id="cust-select" onchange="loadCustomerProfile()" class="w-full p-3 bg-white border border-gray-300 rounded-xl text-sm outline-none shadow-sm focus:border-indigo-500">
+                <option value="">Loading DB...</option>
             </select>
         </div>
 
-        <div class="space-y-4">
+        <div>
+            <label class="text-xs font-bold text-gray-500 uppercase ml-1">Pay To</label>
+            <select id="ben-select" onchange="updateBenSummary()" class="w-full p-3 bg-white border border-gray-300 rounded-xl text-sm h-12">
+                <option>Select Customer First</option>
+            </select>
+        </div>
+
+        <div id="passport" class="bg-gray-100 p-3 rounded-lg text-xs text-gray-600 hidden">
+            <div class="flex justify-between border-b border-gray-200 pb-1 mb-1">
+                <span>📱 Usual Device:</span>
+                <span id="p-device" class="font-bold text-gray-800">...</span>
+            </div>
+            <div class="flex justify-between border-b border-gray-200 pb-1 mb-1">
+                <span>📍 Home City:</span>
+                <span id="p-city" class="font-bold text-gray-800">...</span>
+            </div>
+            <div class="flex justify-between">
+                <span>💰 Avg Pay (Selected):</span>
+                <span id="p-avg" class="font-bold text-indigo-600">Select Beneficiary</span>
+            </div>
+        </div>
+
+        <div class="bg-red-50 p-3 rounded-xl border border-red-100 cursor-pointer transition" onclick="toggleAttack(this)">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-lg">🚀</span>
+                <input type="checkbox" id="check-velocity" class="accent-red-600 pointer-events-none">
+            </div>
+            <p class="text-[10px] font-bold text-red-700 leading-tight">Simulate Velocity Attack</p>
+            <p class="text-[8px] text-red-500">Force 100% Risk (Burst Mode)</p>
+        </div>
+
+        <div class="space-y-3">
             <div>
-                <label class="text-xs font-bold text-gray-500 uppercase">Vendor Name</label>
-                <input type="text" id="vendor" class="w-full p-4 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-indigo-500 transition" value="WeWork India">
-                <p class="text-[10px] text-gray-400 mt-1" id="vendor-status">Business Health: Verified</p>
+                <label class="text-[10px] font-bold text-gray-400 uppercase">Amount</label>
+                <input type="number" id="amount" class="w-full p-2 bg-white border rounded-lg text-xs h-10 font-bold" value="5000">
             </div>
 
-            <div>
-                <label class="text-xs font-bold text-gray-500 uppercase">Invoice Amount (₹)</label>
-                <input type="number" id="amount" class="w-full p-4 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-indigo-500 transition" value="25000">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Device</label>
+                    <select id="dev-select" class="w-full p-2 bg-white border rounded-lg text-xs h-10">
+                        <option value="KNOWN">✅ Usual Device</option>
+                        <option value="NEW">⚠️ New / Unknown</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Location</label>
+                    <select id="city-select" class="w-full p-2 bg-white border rounded-lg text-xs h-10">
+                        <option value="HOME">✅ Home City</option>
+                        <option value="ABROAD">✈️ Impossible Travel</option>
+                    </select>
+                </div>
             </div>
+        </div>
 
-            <button onclick="processPayment()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 transition mt-4 transform active:scale-95">
-                Process Invoice
+        <button onclick="payNow()" id="pay-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 transition transform active:scale-95 text-lg mb-24">
+            Pay Now
+        </button>
+
+        <div id="result-box" class="hidden absolute bottom-5 left-5 right-5 bg-white p-4 rounded-xl shadow-2xl border-2 border-gray-200 z-50 animate-fade-in-up">
+            <div class="flex items-start gap-3">
+                <div id="res-icon" class="text-3xl"></div>
+                <div class="flex-grow">
+                    <h3 id="res-title" class="font-bold text-gray-900"></h3>
+                    <p id="res-msg" class="text-xs text-gray-600 mt-1 font-medium"></p>
+                </div>
+            </div>
+            <button onclick="resetView()" class="mt-4 w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-xs font-bold transition">
+                Make Another Transaction
             </button>
         </div>
-    </div>
 
-    <div id="loading-screen" class="hidden h-full flex flex-col items-center justify-center bg-white absolute top-0 w-full z-20">
-        <div class="animate-spin w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full mb-4"></div>
-        <h2 class="font-bold text-gray-800">Auditing Vendor...</h2>
-        <p class="text-xs text-gray-500 mt-2">Calculating Outlier Score</p>
-    </div>
-
-    <div id="result-screen" class="hidden h-full flex flex-col items-center justify-center bg-white absolute top-0 w-full z-30 p-6 text-center">
-        <div id="res-icon" class="text-6xl mb-4"></div>
-        <h2 id="res-title" class="text-2xl font-bold mb-2"></h2>
-        <p id="res-msg" class="text-gray-500 mb-6"></p>
-
-        <div id="evidence-box" class="bg-red-50 p-4 rounded-xl border border-red-100 w-full text-left hidden">
-            <p class="text-[10px] font-bold text-red-500 uppercase">Isolation Forest Verdict</p>
-            <p class="text-sm font-bold text-gray-800 mt-1" id="iso-verdict"></p>
-            <p class="text-xs text-gray-600 mt-1 bg-white p-2 rounded border border-red-100" id="iso-reason"></p>
-        </div>
-
-        <button onclick="location.reload()" class="mt-8 w-full bg-gray-900 text-white py-3 rounded-xl font-bold">Try Again</button>
     </div>
 </div>
 
 <script>
-    const API_URL = "http://127.0.0.1:8000/analyze_transaction/";
+    const API_BASE = "http://127.0.0.1:8000"; 
+    let currentProfile = {};
+    let beneficiaryMap = {};
 
-    function autoFill() {
-        const type = document.getElementById('scenario-selector').value;
-        if (type === 'clean') {
-            document.getElementById('vendor').value = "WeWork India";
-            document.getElementById('amount').value = "25000";
-            document.getElementById('vendor-status').innerText = "Business Health: Active OpEx";
-        } else {
-            document.getElementById('vendor').value = "SHELL_CORP_LTD";
-            document.getElementById('amount').value = "500000";
-            document.getElementById('vendor-status').innerText = "Business Health: No OpEx Detected";
-        }
-    }
+    window.onload = async () => {
+        try {
+            const res = await fetch(`${API_BASE}/get_customers`);
+            const data = await res.json();
+            const sSelect = document.getElementById('cust-select');
+            sSelect.innerHTML = "<option value=''>-- Select Payer --</option>";
+            if (data.customers) {
+                data.customers.forEach(cust => {
+                    let opt = document.createElement("option");
+                    opt.value = cust.id;
+                    opt.text = `${cust.name} (ID: ${cust.id})`;
+                    sSelect.add(opt);
+                });
+            }
+        } catch (e) { alert("API Error. Is backend running?"); }
+    };
 
-    function processPayment() {
-        const type = document.getElementById('scenario-selector').value;
-        document.getElementById('loading-screen').classList.remove('hidden');
+    async function loadCustomerProfile() {
+        const cid = document.getElementById('cust-select').value;
+        if(!cid) return;
 
-        let payload = {};
-        if (type === 'clean') {
-            payload = { customer_id: 101, amount: 25000, device_id: "Office_PC", beneficiary_account: "WeWork_ACC", account_age_days: 900 };
-        } else {
-            payload = { customer_id: 666, amount: 500000, device_id: "HQ_PC", beneficiary_account: "SHELL_CORP", account_age_days: 10 };
-        }
-
-        fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        .then(response => response.json())
-        .then(data => showResult(data))
-        .catch(err => {
-            alert("API Error");
-            location.reload();
+        const res = await fetch(`${API_BASE}/get_customer_details`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({customer_id: parseInt(cid)})
         });
+        const data = await res.json();
+        currentProfile = data;
+        beneficiaryMap = {};
+
+        document.getElementById('passport').classList.remove('hidden');
+        document.getElementById('p-device').innerText = data.usual_device;
+        document.getElementById('p-city').innerText = data.usual_city;
+        document.getElementById('p-avg').innerText = "Select Beneficiary";
+
+        const benSelect = document.getElementById('ben-select');
+        benSelect.innerHTML = "<option value=''>-- Select Receiver --</option>";
+        if (data.beneficiaries) {
+            data.beneficiaries.forEach(b => {
+                let opt = document.createElement("option");
+                opt.value = b.account; opt.text = `⭐️ ${b.account}`;
+                benSelect.add(opt);
+                beneficiaryMap[b.account] = b.avg_spend;
+            });
+        }
+        let unknown = document.createElement("option");
+        unknown.value = "NEW_ACC_9999"; unknown.text = "⚠️ New / Unknown Account";
+        benSelect.add(unknown);
     }
 
-    function showResult(data) {
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('result-screen').classList.remove('hidden');
-        const evBox = document.getElementById('evidence-box');
-
-        if (data.status === "APPROVED") {
-            document.getElementById('res-icon').innerHTML = "✅";
-            document.getElementById('res-title').innerText = "Invoice Paid";
-            document.getElementById('res-msg').innerText = "Vendor Verified";
-            evBox.classList.add('hidden');
+    function updateBenSummary() {
+        const ben = document.getElementById('ben-select').value;
+        const avgDisplay = document.getElementById('p-avg');
+        if (beneficiaryMap[ben]) {
+            avgDisplay.innerText = "₹ " + beneficiaryMap[ben];
+            avgDisplay.className = "font-bold text-indigo-600";
+        } else if (ben === "NEW_ACC_9999") {
+            avgDisplay.innerText = "No History";
+            avgDisplay.className = "font-bold text-red-500";
         } else {
-            document.getElementById('res-icon').innerHTML = "🛑";
-            document.getElementById('res-title').innerText = "Payment Blocked";
-            document.getElementById('res-msg').innerText = "Shell Company Detected";
-            evBox.classList.remove('hidden');
+            avgDisplay.innerText = "...";
+        }
+    }
 
-            const isoData = data.model_breakdown.Anomaly_Model;
-            document.getElementById('iso-verdict').innerText = isoData.verdict;
-            document.getElementById('iso-reason').innerText = "Anomaly Score: " + isoData.score.toFixed(4);
+    function toggleAttack(el) {
+        const checkbox = document.getElementById('check-velocity');
+        checkbox.checked = !checkbox.checked;
+        if(checkbox.checked) {
+            el.classList.replace('bg-red-50', 'bg-red-100');
+            el.classList.add('ring-2', 'ring-red-400');
+        } else {
+            el.classList.replace('bg-red-100', 'bg-red-50');
+            el.classList.remove('ring-2', 'ring-red-400');
+        }
+    }
+
+    async function payNow() {
+        const custId = document.getElementById('cust-select').value;
+        if (!custId) { alert("Select a customer first!"); return; }
+
+        const btn = document.getElementById('pay-btn');
+        btn.innerText = "Processing..."; btn.disabled = true;
+
+        const isVelocity = document.getElementById('check-velocity').checked;
+        const devChoice = document.getElementById('dev-select').value;
+        const cityChoice = document.getElementById('city-select').value;
+        const benAccount = document.getElementById('ben-select').value;
+        const amt = document.getElementById('amount').value;
+
+        const finalDevice = (devChoice === 'KNOWN') ? currentProfile.usual_device : "UNSEEN_DEVICE_X";
+        const finalCity = (cityChoice === 'HOME') ? "HOME" : "London"; 
+
+        const payload = {
+            customer_id: parseInt(custId),
+            amount: parseFloat(amt),
+            device_id: finalDevice,
+            beneficiary_account: benAccount,
+            city: finalCity,
+            hour: 14,
+            is_active: document.getElementById('pattern-toggle').checked,
+            is_velocity_attack: isVelocity,
+            is_amount_spike: false 
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/analyze_pattern_transaction`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            updateGauge(data.score);
+            showVerdict(data);
+        } catch (e) { alert("Transaction Failed"); }
+    }
+
+    function resetView() {
+        // Reset Logic
+        document.getElementById('result-box').classList.add('hidden');
+        updateGauge(0);
+        
+        // Enable Button again
+        const btn = document.getElementById('pay-btn');
+        btn.innerText = "Pay Now";
+        btn.disabled = false;
+    }
+
+    function updateGauge(score) {
+        const needle = document.getElementById('svg-needle');
+        // SVG Math: 0% = 0deg (Left), 100% = 180deg (Right)
+        const deg = (score / 100) * 180;
+        needle.style.transform = `rotate(${deg}deg)`;
+        
+        const label = document.getElementById('score-val');
+        label.innerText = score + "%";
+        
+        if(score < 30) label.style.color = '#22c55e';
+        else if(score < 70) label.style.color = '#eab308';
+        else label.style.color = '#ef4444';
+    }
+
+    function showVerdict(data) {
+        const box = document.getElementById('result-box');
+        box.classList.remove('hidden');
+        
+        if (data.status === "BLOCKED") {
+            document.getElementById('res-icon').innerText = "🛑";
+            document.getElementById('res-title').innerText = "Transfer Blocked";
+            document.getElementById('res-title').className = "font-bold text-red-700";
+            document.getElementById('res-msg').innerText = data.message;
+        } else {
+            document.getElementById('res-icon').innerText = "✅";
+            document.getElementById('res-title').innerText = "Transfer Successful";
+            document.getElementById('res-title').className = "font-bold text-green-700";
+            document.getElementById('res-msg').innerText = "Identity & Pattern Verified";
         }
     }
 </script>
+
 </body>
 </html>
