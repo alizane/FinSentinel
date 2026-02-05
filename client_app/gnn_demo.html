@@ -5,158 +5,204 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GNN Defense Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         .mobile-frame {
-            max-width: 400px; margin: 20px auto; background: #fff; min-height: 800px;
+            max-width: 420px; margin: 20px auto; background: #fff; min-height: 880px;
             border: 14px solid #1f2937; border-radius: 45px; overflow: hidden; position: relative;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column;
         }
         .notch {
             width: 140px; height: 30px; background: #1f2937; margin: 0 auto;
             border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; 
             position: absolute; left: 50%; transform: translateX(-50%); top: 0; z-index: 50;
         }
+        #network-graph { width: 100%; height: 280px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 15px; }
+        .tab-btn { padding: 10px 0; font-size: 11px; font-weight: 600; color: #6b7280; border-bottom: 2px solid transparent; cursor: pointer; flex: 1; text-align: center; }
+        .tab-btn.active { color: #4f46e5; border-bottom: 2px solid #4f46e5; background: #eff6ff; }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
 <div class="mobile-frame">
     <div class="notch"></div>
-
-    <div class="bg-blue-600 pt-12 pb-6 px-6 text-white shadow-md relative z-10">
+    <div class="bg-indigo-600 pt-10 pb-4 px-6 text-white shadow-md z-10">
         <div class="flex items-center gap-3">
             <a href="index.html" class="text-xl hover:opacity-80">←</a>
-            <h1 class="font-bold text-lg">Send to Mobile</h1>
+            <h1 class="font-bold text-lg">GNN Forensics</h1>
         </div>
-        <p class="text-xs opacity-80 mt-1 pl-6">Protected by Graph Neural Network</p>
+        <p class="text-[10px] opacity-80 mt-1 pl-6">Real-Time Graph Analysis</p>
     </div>
 
-    <div id="input-screen" class="p-6 relative z-0">
-        
-        <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg mb-6">
-            <p class="text-[10px] font-bold text-yellow-700 uppercase mb-2">🎓 Demo Mode</p>
-            <select id="scenario-selector" onchange="autoFill()" class="w-full text-sm p-2 border rounded bg-white cursor-pointer">
-                <option value="clean">🟢 Scenario 1: Legit Transfer</option>
-                <option value="mule">🔴 Scenario 2: Money Mule (Star Topology)</option>
-                <option value="ghost">🔴 Scenario 3: Synthetic Identity (Device Farm)</option>
-            </select>
+    <div class="flex border-b border-gray-200 bg-white">
+        <div class="tab-btn active" onclick="setTab('star', this)">Money Mule<br>(Star)</div>
+        <div class="tab-btn" onclick="setTab('cycle', this)">Layering<br>(Circle)</div>
+        <div class="tab-btn" onclick="setTab('device', this)">Synthetic ID<br>(Device)</div>
+    </div>
+
+    <div class="p-5 flex-grow overflow-y-auto relative">
+        <div id="hint-box" class="bg-yellow-50 border border-yellow-200 p-2 rounded text-[10px] text-yellow-700 mb-4 text-center font-mono">
+            💡 DEMO HINT: Send to Receiver <b>ID 9001</b>
+        </div>
+
+        <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg mb-4 border border-gray-200">
+            <div>
+                <p class="text-sm font-bold text-gray-700">🛡️ GNN Defense</p>
+                <p class="text-[10px] text-gray-500" id="tab-desc">Detect Star Topology</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="gnn-toggle" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
         </div>
 
         <div class="space-y-4">
             <div>
-                <label class="text-xs font-bold text-gray-500 uppercase">Mobile Number</label>
-                <input type="text" id="phone" class="w-full p-4 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-blue-500 transition" value="9820011223">
-                <p class="text-[10px] text-gray-400 mt-1" id="network-status">Network Status: Verified User</p>
+                <label class="text-xs font-bold text-gray-500 uppercase">From (You)</label>
+                <select id="sender-select" class="w-full p-3 bg-white border border-gray-300 rounded-xl text-sm focus:border-indigo-500 outline-none shadow-sm">
+                    <option value="">Loading DB...</option>
+                </select>
             </div>
-
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase">To (Beneficiary)</label>
+                <select id="receiver-select" class="w-full p-3 bg-white border border-gray-300 rounded-xl text-sm focus:border-indigo-500 outline-none shadow-sm">
+                    <option value="">Loading DB...</option>
+                </select>
+            </div>
             <div>
                 <label class="text-xs font-bold text-gray-500 uppercase">Amount (₹)</label>
-                <input type="number" id="amount" class="w-full p-4 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-blue-500 transition" value="1500">
+                <input type="number" id="amount" class="w-full p-3 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-indigo-500 shadow-sm" value="45000">
             </div>
-
-            <button onclick="processPayment()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition mt-4 transform active:scale-95">
-                Pay Securely
+            <button onclick="processTransaction()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 transition transform active:scale-95 mt-2">
+                Analyze Graph
             </button>
         </div>
-    </div>
 
-    <div id="loading-screen" class="hidden h-full flex flex-col items-center justify-center bg-white absolute top-0 w-full z-20">
-        <div class="animate-spin w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full mb-4"></div>
-        <h2 class="font-bold text-gray-800">Scanning Graph Topology...</h2>
-        <p class="text-xs text-gray-500 mt-2">Checking for 2-hop cycles & Fan-in</p>
-    </div>
-
-    <div id="result-screen" class="hidden h-full flex flex-col items-center justify-center bg-white absolute top-0 w-full z-30 p-6 text-center">
-        <div id="res-icon" class="text-6xl mb-4"></div>
-        <h2 id="res-title" class="text-2xl font-bold mb-2"></h2>
-        <p id="res-msg" class="text-gray-500 mb-6"></p>
-
-        <div id="evidence-box" class="bg-red-50 p-4 rounded-xl border border-red-100 w-full text-left hidden">
-            <p class="text-[10px] font-bold text-red-500 uppercase">Graph Neural Network Verdict</p>
-            <p class="text-sm font-bold text-gray-800 mt-1" id="gnn-verdict"></p>
-            <p class="text-xs text-gray-600 mt-1 bg-white p-2 rounded border border-red-100" id="gnn-reason"></p>
+        <div id="analysis-panel" class="hidden mt-6 animate-fade-in-up border-t pt-4">
+            <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Graph Visualization</h3>
+            <div id="network-graph"></div>
+            <div id="verdict-box" class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-semibold text-gray-500">Traditional Rules</span>
+                    <span class="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded">✅ APPROVED</span>
+                </div>
+                <div class="flex justify-between items-center border-t border-gray-200 pt-2">
+                    <span class="text-xs font-semibold text-gray-500">GNN Model</span>
+                    <span id="gnn-badge" class="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded">WAITING...</span>
+                </div>
+                <p id="gnn-reason" class="text-[10px] text-gray-500 mt-2 italic text-center"></p>
+            </div>
+            <button onclick="resetView()" class="w-full mt-4 text-xs text-gray-400 hover:text-gray-600 underline">Reset</button>
         </div>
-
-        <button onclick="location.reload()" class="mt-8 w-full bg-gray-900 text-white py-3 rounded-xl font-bold">Try Again</button>
     </div>
-
 </div>
 
 <script>
-    const API_URL = "http://127.0.0.1:8000/analyze_transaction/";
+    const API_BASE = "http://127.0.0.1:8000"; 
+    let network = null;
+    let currentScenario = "star"; 
 
-    function autoFill() {
-        const type = document.getElementById('scenario-selector').value;
-        const phoneInput = document.getElementById('phone');
-        const amtInput = document.getElementById('amount');
-        const statusText = document.getElementById('network-status');
+    // Load Data
+    window.onload = async () => {
+        const sSelect = document.getElementById('sender-select');
+        const rSelect = document.getElementById('receiver-select');
+        try {
+            const res = await fetch(`${API_BASE}/get_customers`);
+            const data = await res.json();
+            sSelect.innerHTML = ""; rSelect.innerHTML = "";
+            if (data.customers) {
+                data.customers.forEach(cust => {
+                    let opt = document.createElement("option");
+                    opt.value = cust.id;
+                    opt.text = `${cust.name} (ID: ${cust.id})`;
+                    sSelect.add(opt.cloneNode(true));
+                    rSelect.add(opt.cloneNode(true));
+                });
+                sSelect.selectedIndex = 1; rSelect.selectedIndex = 0; 
+            }
+        } catch (e) { alert("API Error. Run 'uvicorn api:app --reload'"); }
+    };
 
-        if (type === 'clean') {
-            phoneInput.value = "9820011223"; 
-            amtInput.value = "1500";
-            statusText.innerText = "Network Status: Verified User";
-        } else if (type === 'mule') {
-            phoneInput.value = "9090909090"; 
-            amtInput.value = "48000"; 
-            statusText.innerText = "Network Status: High Traffic Node (Mule)";
-        } else {
-            phoneInput.value = "8888888888"; 
-            amtInput.value = "200000";
-            statusText.innerText = "Network Status: Synthetic Device Farm";
-        }
-    }
-
-    function processPayment() {
-        const type = document.getElementById('scenario-selector').value;
+    function setTab(scenario, btnElement) {
+        currentScenario = scenario;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        btnElement.classList.add('active');
         
-        // Show Loading
-        document.getElementById('loading-screen').classList.remove('hidden');
-
-        let payload = {};
-        if (type === 'clean') {
-            payload = { customer_id: 101, amount: 1500, device_id: "My_iPhone", beneficiary_account: "Friend_ACC", account_age_days: 500 };
-        } else if (type === 'mule') {
-            payload = { customer_id: 8821, amount: 49000, device_id: "Android_X", beneficiary_account: "MULE_ACC_99", account_age_days: 365 };
+        const desc = document.getElementById('tab-desc');
+        const hint = document.getElementById('hint-box');
+        
+        if(scenario === 'star') {
+            desc.innerText = "Detect Star Topology (Fan-In)";
+            hint.innerHTML = "💡 DEMO HINT: Send to Receiver <b>ID 9001</b> (The Mule)";
+        } else if(scenario === 'cycle') {
+            desc.innerText = "Detect Circular Trading (Loops)";
+            hint.innerHTML = "💡 DEMO HINT: From <b>ID 8001</b> To <b>ID 8002</b>";
         } else {
-            payload = { customer_id: 9999, amount: 200000, device_id: "Android_X_11", beneficiary_account: "Ghost_ACC", account_age_days: 2 };
+            desc.innerText = "Detect Shared Device Usage";
+            hint.innerHTML = "💡 DEMO HINT: From <b>ID 9010</b> (Bot) To <b>Any</b>";
         }
-
-        fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        .then(response => response.json())
-        .then(data => showResult(data))
-        .catch(err => {
-            alert("API Error: Make sure api.py is running!");
-            location.reload();
-        });
+        resetView();
     }
 
-    function showResult(data) {
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('result-screen').classList.remove('hidden');
+    async function processTransaction() {
+        const sId = document.getElementById('sender-select').value;
+        const rId = document.getElementById('receiver-select').value;
+        const amt = document.getElementById('amount').value;
+        const isGnn = document.getElementById('gnn-toggle').checked;
+        const btn = document.querySelector('button');
 
-        const evBox = document.getElementById('evidence-box');
+        btn.innerText = "Scanning Graph..."; btn.disabled = true;
 
-        if (data.status === "APPROVED") {
-            document.getElementById('res-icon').innerHTML = "✅";
-            document.getElementById('res-title').innerText = "Sent Successfully";
-            document.getElementById('res-msg').innerText = "Transaction ID: TXN_88292";
-            evBox.classList.add('hidden');
+        try {
+            const res = await fetch(`${API_BASE}/analyze_gnn_transaction`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender_id: parseInt(sId), receiver_id: parseInt(rId), amount: parseFloat(amt), is_gnn_active: isGnn, scenario_type: currentScenario })
+            });
+            const data = await res.json();
+            showAnalysis(data, isGnn);
+        } catch (error) { alert("Analysis Failed."); } 
+        finally { btn.innerText = "Analyze Graph"; btn.disabled = false; }
+    }
+
+    function showAnalysis(data, isGnn) {
+        document.getElementById('analysis-panel').classList.remove('hidden');
+        const gnnBadge = document.getElementById('gnn-badge');
+        const gnnReason = document.getElementById('gnn-reason');
+
+        if (!isGnn) {
+            gnnBadge.innerText = "INACTIVE"; gnnBadge.className = "text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded";
+            gnnReason.innerText = "GNN protection was turned off.";
         } else {
-            document.getElementById('res-icon').innerHTML = "🚫";
-            document.getElementById('res-title').innerText = "Transfer Failed";
-            document.getElementById('res-msg').innerText = "Security Risk Detected";
-            evBox.classList.remove('hidden');
-
-            const gnnData = data.model_breakdown.Network_Model;
-            document.getElementById('gnn-verdict').innerText = gnnData.verdict;
-            document.getElementById('gnn-reason').innerText = gnnData.details[0] || "Graph Topology Risk";
+            if (data.status === "BLOCKED") {
+                gnnBadge.innerText = "❌ BLOCKED"; gnnBadge.className = "text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded";
+            } else {
+                gnnBadge.innerText = "✅ APPROVED"; gnnBadge.className = "text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded";
+            }
+            gnnReason.innerText = data.message;
         }
+        renderGraph(data.graph_data);
+    }
+
+    function renderGraph(graphData) {
+        const container = document.getElementById('network-graph');
+        const data = { nodes: new vis.DataSet(graphData.nodes), edges: new vis.DataSet(graphData.edges) };
+        const options = {
+            nodes: { font: { size: 10, face: 'Inter' }, borderWidth: 2 },
+            edges: { color: '#cbd5e1', smooth: { type: 'continuous' } },
+            physics: { stabilization: false, barnesHut: { gravitationalConstant: -3000 } }
+        };
+        if (network) network.destroy();
+        network = new vis.Network(container, data, options);
+    }
+
+    function resetView() {
+        document.getElementById('analysis-panel').classList.add('hidden');
+        if (network) network.destroy();
     }
 </script>
 
