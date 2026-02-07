@@ -175,11 +175,22 @@ async def analyze_transaction(tx: TransactionRequest):
 @app.get("/get_customers")
 def get_customers():
     try:
-        q = text("SELECT customer_id, customer_name, risk_score FROM customers ORDER BY risk_score DESC LIMIT 60")
         with engine.connect() as conn:
-            res = conn.execute(q).fetchall()
-        return {"customers": [{"id": r[0], "name": r[1], "risk": r[2]} for r in res]}
-    except: return {"customers": []}
+            # 1. Try fetching from Customers table first (if you have metadata)
+            try:
+                query = text("SELECT customer_id, customer_name FROM customers ORDER BY customer_id ASC")
+                result = conn.execute(query).fetchall()
+                customers = [{"id": row[0], "name": row[1]} for row in result]
+            except:
+                # 2. Fallback: Get ALL active IDs from Transactions table
+                query = text("SELECT DISTINCT customer_id FROM transactions ORDER BY customer_id ASC")
+                result = conn.execute(query).fetchall()
+                customers = [{"id": row[0], "name": f"User {row[0]}"} for row in result]
+                
+        return {"customers": customers}
+    except Exception as e:
+        print(f"DB Error: {e}")
+        return {"error": str(e), "customers": []}
 
 @app.post("/analyze_gnn_transaction")
 def analyze_gnn_transaction(req: GNNTransactionRequest):
@@ -465,3 +476,377 @@ def analyze_pattern_transaction(req: PatternRequest):
     except Exception as e:
         print(f"Pattern Error: {e}")
         return {"status": "ERROR", "message": str(e), "score": 0}
+    
+# ==========================================
+#   SECTION 7: ANOMALY DEMO (Shell Hunter)
+# ==========================================
+
+class AnomalyRequest(BaseModel):
+    vendor_name: str
+    amount: float
+
+@app.post("/analyze_anomaly_transaction")
+def analyze_anomaly_transaction(req: AnomalyRequest):
+    try:
+        # 1. SIMULATE VENDOR HISTORY (The "Features")
+        # In a real app, we would query the vendor's transaction history DB.
+        
+        if "Shell" in req.vendor_name or "Apex" in req.vendor_name:
+            # SHELL PROFILE: Huge Money, No Bills
+            total_volume = 50000000 # 5 Crores
+            opex_bills = 0          # No Rent, No Electricity
+            avg_txn_size = 2500000  # Huge chunks
+        else:
+            # LEGIT PROFILE: Healthy Mix
+            total_volume = 15000000 # 1.5 Crores
+            opex_bills = 450000     # Pays Rent/Salaries
+            avg_txn_size = 5000     # Normal mix
+            
+        # 2. CALCULATE ISOLATION METRICS
+        # Feature A: OpEx Ratio (Healthy companies are usually > 5%)
+        opex_ratio = (opex_bills / total_volume) * 100 if total_volume > 0 else 0
+        
+        # Feature B: Concentration Risk (Is volume just 1-2 big hits?)
+        # (Simplified logic for demo)
+        
+        # 3. ISOLATION FOREST LOGIC (Simplified Deterministic Math)
+        # Real IsoForest would give a score between -1 and 1.
+        # We simulate that score based on the OpEx signature.
+        
+        if opex_ratio < 0.1: 
+            # ANOMALY: Ghost Entity
+            iso_score = -0.85 # Strongly Negative = Anomaly
+            status = "BLOCKED"
+            verdict = "Shell Company Signature"
+            reason = "Entity has High Volume but ZERO Operational Footprint (No Rent/Utilities detected)."
+            color = "red"
+        else:
+            # NORMAL: In-Distribution
+            iso_score = 0.65 # Positive = Normal
+            status = "APPROVED"
+            verdict = "Legitimate Business"
+            reason = f"Entity has healthy OpEx Ratio ({opex_ratio:.1f}%). Matches standard business cluster."
+            color = "green"
+
+        # 4. SAVE TO DB
+        timestamp = get_ist_time()
+        with engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO transactions 
+                (customer_id, customer_name, amount, timestamp, device_id, beneficiary_account, city, payment_method_detail, is_fraud, fraud_type)
+                VALUES (8821, 'Rohan Das', :a, :t, 'Auditor_PC', :b, 'Mumbai', 'Vendor Audit', :f, :ft)
+            """), {
+                "a": req.amount, "t": timestamp, "b": req.vendor_name, 
+                "f": 1 if status == "BLOCKED" else 0, 
+                "ft": verdict if status == "BLOCKED" else "None"
+            })
+
+        return {
+            "status": status,
+            "verdict": verdict,
+            "reason": reason,
+            "iso_score": iso_score,
+            "opex_ratio": opex_ratio,
+            "verdict_color": color
+        }
+
+    except Exception as e:
+        return {"status": "ERROR", "message": str(e)}
+    
+
+# ==========================================
+#   SECTION 8: SCENARIO PROFILING (Feature Store)
+# ==========================================
+
+@app.post("/get_profile_timeline")
+def get_profile_timeline(req: CustomerDetailRequest):
+    try:
+        with engine.connect() as conn:
+            # Query matches image_da5b64.png exactly
+            query = text(f"""
+                SELECT 
+                    grand_total, active_days, 
+                    global_daily_avg, global_weekly_avg, 
+                    global_monthly_avg, global_yearly_avg
+                FROM profile_timeline 
+                WHERE customer_id = {req.customer_id}
+            """)
+            row = conn.execute(query).fetchone()
+            
+            if not row:
+                return {"status": "empty", "timeline": []}
+            
+            # Format data for the frontend
+            data = [{
+                "grand_total": f"₹ {row[0]:,.2f}",
+                "active_days": row[1],
+                "daily_avg": f"₹ {row[2]:,.2f}",
+                "weekly_avg": f"₹ {row[3]:,.2f}",
+                "monthly_avg": f"₹ {row[4]:,.2f}",
+                "yearly_avg": f"₹ {row[5]:,.2f}"
+            }]
+            
+            return {"status": "success", "timeline": data}
+    except Exception as e:
+        print(f"Timeline Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/get_profile_beneficiary")
+def get_profile_beneficiary(req: CustomerDetailRequest):
+    try:
+        with engine.connect() as conn:
+            # Query matches image_da5ba5.png exactly
+            query = text(f"""
+                SELECT 
+                    beneficiary_account, total_amount, txn_count, 
+                    active_days, daily_avg, weekly_avg, 
+                    monthly_avg, yearly_avg
+                FROM profile_beneficiary 
+                WHERE customer_id = {req.customer_id}
+                ORDER BY total_amount DESC
+            """)
+            result = conn.execute(query).fetchall()
+            
+            data = []
+            for row in result:
+                data.append({
+                    "beneficiary": row[0],
+                    "total": f"₹ {row[1]:,.2f}",
+                    "count": row[2],
+                    "days": row[3],
+                    "daily": f"₹ {row[4]:,.2f}",
+                    "weekly": f"₹ {row[5]:,.2f}",
+                    "monthly": f"₹ {row[6]:,.2f}",
+                    "yearly": f"₹ {row[7]:,.2f}"
+                })
+                
+            if not data:
+                return {"status": "empty", "beneficiaries": []}
+
+            return {"status": "success", "beneficiaries": data}
+    except Exception as e:
+        print(f"Beneficiary Error: {e}")
+        return {"status": "error", "message": str(e)}
+    
+    # ==========================================
+#   SECTION 9: VOLUME SIMULATOR (2x Rule)
+# ==========================================
+
+class VolumeRequest(BaseModel):
+    customer_id: int
+    amount: float
+    period: str # "Daily", "Weekly", "Monthly", "Yearly"
+
+@app.post("/simulate_volume_check")
+def simulate_volume_check(req: VolumeRequest):
+    try:
+        with engine.connect() as conn:
+            # 1. Fetch the user's specific averages
+            query = text(f"""
+                SELECT global_daily_avg, global_weekly_avg, global_monthly_avg, global_yearly_avg
+                FROM profile_timeline 
+                WHERE customer_id = {req.customer_id}
+            """)
+            row = conn.execute(query).fetchone()
+            
+            if not row:
+                return {"status": "error", "message": "Profile not found. Run data pipeline first."}
+
+            # 2. Select the correct average based on dropdown
+            avg_map = {
+                "Daily": row[0],
+                "Weekly": row[1],
+                "Monthly": row[2],
+                "Yearly": row[3]
+            }
+            # Handle None/Null values in DB
+            limit = float(avg_map.get(req.period, 0) or 0)
+            
+            # Default fallback if history is 0 (to avoid blocking everything)
+            if limit == 0: limit = 1000 
+
+            # 3. THE RULE: Block if > 2x Average
+            threshold = limit * 2
+            
+            if req.amount > threshold:
+                status = "BLOCKED"
+                msg = f"Volume Breach! ₹{req.amount:,.0f} > 2x {req.period} Avg (₹{limit:,.0f})"
+                is_fraud = 1
+            else:
+                status = "APPROVED"
+                msg = f"Safe. Amount within limit (Limit: ₹{threshold:,.0f})"
+                is_fraud = 0
+
+            # 4. Save Transaction to DB
+            timestamp = get_ist_time()
+            res = conn.execute(text(f"SELECT customer_name FROM customers WHERE customer_id = {req.customer_id}")).fetchone()
+            c_name = res[0] if res else f"User {req.customer_id}"
+            
+            conn.execute(text("""
+                INSERT INTO transactions 
+                (customer_id, customer_name, amount, timestamp, device_id, beneficiary_account, city, payment_method_detail, is_fraud, fraud_type)
+                VALUES (:c, :cn, :a, :t, 'Sim_Device', 'VOLUME_TEST', 'Mumbai', 'Volume Check', :f, :ft)
+            """), {
+                "c": req.customer_id, "cn": c_name, "a": req.amount, "t": timestamp, 
+                "f": is_fraud, "ft": f"{req.period} Volume Spike" if is_fraud else "None"
+            })
+
+            return {
+                "status": status, 
+                "message": msg, 
+                "threshold": threshold,
+                "avg_used": limit
+            }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
+
+    # ==========================================
+#   SECTION 10: BENEFICIARY SIMULATOR (Relationship Limits)
+# ==========================================
+
+class BeneficiaryVolumeRequest(BaseModel):
+    customer_id: int
+    beneficiary_account: str
+    amount: float
+    period: str # "Daily", "Weekly", "Monthly", "Yearly"
+
+@app.post("/simulate_beneficiary_volume_check")
+def simulate_beneficiary_volume_check(req: BeneficiaryVolumeRequest):
+    try:
+        with engine.connect() as conn:
+            # 1. Fetch specific relationship stats
+            query = text(f"""
+                SELECT daily_avg, weekly_avg, monthly_avg, yearly_avg
+                FROM profile_beneficiary 
+                WHERE customer_id = {req.customer_id} 
+                AND beneficiary_account = '{req.beneficiary_account}'
+            """)
+            row = conn.execute(query).fetchone()
+            
+            if not row:
+                return {"status": "error", "message": "No history for this beneficiary."}
+
+            # 2. Select Average
+            avg_map = {
+                "Daily": row[0],
+                "Weekly": row[1],
+                "Monthly": row[2],
+                "Yearly": row[3]
+            }
+            limit = float(avg_map.get(req.period, 0) or 0)
+            
+            # Default safe limit if history is 0
+            if limit == 0: limit = 5000 
+
+            # 3. Apply 2x Rule
+            threshold = limit * 2
+            
+            if req.amount > threshold:
+                status = "BLOCKED"
+                msg = f"Relationship Breach! ₹{req.amount:,.0f} > 2x {req.period} Avg to {req.beneficiary_account} (Limit: ₹{threshold:,.0f})"
+                is_fraud = 1
+            else:
+                status = "APPROVED"
+                msg = f"Safe. Amount fits normal relationship pattern."
+                is_fraud = 0
+
+            # 4. Save to DB
+            timestamp = get_ist_time()
+            res = conn.execute(text(f"SELECT customer_name FROM customers WHERE customer_id = {req.customer_id}")).fetchone()
+            c_name = res[0] if res else f"User {req.customer_id}"
+            
+            conn.execute(text("""
+                INSERT INTO transactions 
+                (customer_id, customer_name, amount, timestamp, device_id, beneficiary_account, city, payment_method_detail, is_fraud, fraud_type)
+                VALUES (:c, :cn, :a, :t, 'Sim_Device', :b, 'Mumbai', 'Beneficiary Check', :f, :ft)
+            """), {
+                "c": req.customer_id, "cn": c_name, "a": req.amount, "t": timestamp, 
+                "b": req.beneficiary_account, "f": is_fraud, 
+                "ft": f"Relationship Spike ({req.period})" if is_fraud else "None"
+            })
+
+            return {
+                "status": status, 
+                "message": msg, 
+                "threshold": threshold
+            }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
+    # ==========================================
+#   SECTION 11: BENEFICIARY SIMULATOR (Relationship Limits - 2.5x Rule)
+# ==========================================
+
+class BenSimRequest(BaseModel):
+    customer_id: int
+    beneficiary_account: str
+    amount: float
+    period: str # "Daily", "Weekly", "Monthly", "Yearly"
+
+@app.post("/simulate_beneficiary_volume_check")
+def simulate_beneficiary_volume_check(req: BenSimRequest):
+    try:
+        with engine.connect() as conn:
+            # 1. Fetch specific relationship stats for this pair
+            query = text(f"""
+                SELECT daily_avg, weekly_avg, monthly_avg, yearly_avg
+                FROM profile_beneficiary 
+                WHERE customer_id = {req.customer_id} 
+                AND beneficiary_account = '{req.beneficiary_account}'
+            """)
+            row = conn.execute(query).fetchone()
+            
+            if not row:
+                return {"status": "error", "message": "Relationship history not found."}
+
+            # 2. Select the relevant average based on input period
+            avg_map = {
+                "Daily": row[0],
+                "Weekly": row[1],
+                "Monthly": row[2],
+                "Yearly": row[3]
+            }
+            # Handle potential None values from DB
+            limit = float(avg_map.get(req.period, 0) or 0)
+            
+            # If no history exists for that specific period, set a low default safety limit
+            if limit == 0: limit = 1000 
+
+            # 3. APPLY THE 2.5x RULE
+            threshold = limit * 2.5
+            
+            if req.amount > threshold:
+                status = "BLOCKED"
+                msg = f"Relationship Breach! ₹{req.amount:,.0f} exceeds 2.5x {req.period} average to {req.beneficiary_account}. (Limit: ₹{threshold:,.0f})"
+                is_fraud = 1
+            else:
+                status = "APPROVED"
+                msg = f"Safe. Amount is within 2.5x relationship limits."
+                is_fraud = 0
+
+            # 4. Save Transaction to DB for logging
+            timestamp = get_ist_time()
+            res = conn.execute(text(f"SELECT customer_name FROM customers WHERE customer_id = {req.customer_id}")).fetchone()
+            c_name = res[0] if res else f"User {req.customer_id}"
+            
+            conn.execute(text("""
+                INSERT INTO transactions 
+                (customer_id, customer_name, amount, timestamp, device_id, beneficiary_account, city, payment_method_detail, is_fraud, fraud_type)
+                VALUES (:c, :cn, :a, :t, 'Sim_Device', :b, 'Mumbai', 'Ben. Volume Check', :f, :ft)
+            """), {
+                "c": req.customer_id, "cn": c_name, "a": req.amount, "t": timestamp, 
+                "b": req.beneficiary_account, "f": is_fraud, 
+                "ft": f"Relationship Spike ({req.period})" if is_fraud else "None"
+            })
+
+            return {
+                "status": status, 
+                "message": msg, 
+                "threshold": threshold
+            }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Scenarios</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .mobile-frame {
+            max-width: 400px; margin: 20px auto; background: #ffffff; min-height: 950px;
+            border: 14px solid #1f2937; border-radius: 45px; overflow: hidden; position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column;
+        }
+        .notch {
+            width: 140px; height: 30px; background: #1f2937; margin: 0 auto;
+            border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; 
+            position: absolute; left: 50%; transform: translateX(-50%); top: 0; z-index: 50;
+        }
+        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
+        .tab-inactive { color: #6b7280; font-weight: 500; }
+        
+        /* Table Styles */
+        .table-wrapper { overflow-x: auto; white-space: nowrap; padding-bottom: 10px; margin-bottom: 10px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .data-table th { background: #f8fafc; color: #64748b; font-weight: 700; text-align: left; padding: 10px; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; }
+        .data-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; color: #334155; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <div class="mobile-frame">
+        <div class="notch"></div>
+
+        <div class="bg-white pt-12 pb-4 px-6 border-b border-gray-100 sticky top-0 z-40">
+            <div class="flex items-center gap-3 mb-4">
+                <a href="index.html" class="text-xl text-gray-600 hover:text-gray-900">←</a>
+                <h1 class="font-extrabold text-gray-800 text-lg">Scenario <span class="text-blue-500">Profiling</span></h1>
+            </div>
+
+            <div class="flex justify-around text-sm">
+                <button onclick="switchTab('timeline')" id="btn-timeline" class="pb-2 w-1/2 text-center tab-active transition">
+                    📅 Timeline
+                </button>
+                <button onclick="switchTab('beneficiary')" id="btn-beneficiary" class="pb-2 w-1/2 text-center tab-inactive transition">
+                    👥 Beneficiaries
+                </button>
+            </div>
+        </div>
+
+        <div class="p-5 flex-grow overflow-y-auto bg-gray-50">
+            
+            <div class="mb-4">
+                <label class="text-[10px] font-bold text-gray-400 uppercase">Select Customer</label>
+                <select id="cust-select" onchange="loadData()" class="w-full p-3 mt-1 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 outline-none shadow-sm focus:border-blue-500 transition">
+                    <option value="">Loading Customers...</option>
+                </select>
+            </div>
+
+            <div id="view-timeline" class="space-y-6">
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-xs font-bold text-gray-500 uppercase">Spending Volume</h3>
+                        <span class="text-[9px] bg-blue-100 text-blue-600 px-2 py-1 rounded">DB: profile_timeline</span>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
+                        <div id="timeline-container" class="table-wrapper">
+                            <div class="text-center text-gray-400 text-xs py-4">Select a customer first</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-gray-300 shadow-sm relative">
+                    <p class="absolute -top-3 left-4 bg-gray-50 px-2 text-[10px] font-bold text-gray-400 uppercase">Volume Simulator</p>
+                    <h3 class="text-sm font-bold text-gray-800 text-center mb-4">Check Global Limits (2x Rule)</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Enter Amount</label>
+                            <input type="number" id="sim-amount" class="w-full p-3 border border-gray-200 rounded-lg text-sm font-bold outline-none focus:border-blue-500" placeholder="₹ 0">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Select Period</label>
+                            <select id="sim-period" class="w-full p-3 border border-gray-200 rounded-lg text-sm bg-white outline-none focus:border-blue-500">
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Yearly">Yearly</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="runSimulation()" class="w-full bg-gray-900 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-black transition active:scale-95 mt-4">PAY</button>
+                    <div id="sim-result" class="hidden mt-4 p-3 rounded-lg border text-center text-xs"></div>
+                </div>
+            </div>
+
+            <div id="view-beneficiary" class="hidden space-y-6">
+                
+                <div class="bg-white p-5 rounded-2xl border border-gray-300 shadow-sm relative mt-4">
+                    <p class="absolute -top-3 left-4 bg-gray-50 px-2 text-[10px] font-bold text-gray-400 uppercase">Relationship Simulator</p>
+                    <h3 class="text-sm font-bold text-gray-800 text-center mb-4">Check Specific Limits (2.5x Rule)</h3>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Select Beneficiary</label>
+                            <select id="ben-sim-select" onchange="updateBenSummary()" class="w-full p-3 border border-gray-200 rounded-lg text-sm bg-white outline-none focus:border-purple-500">
+                                <option value="">-- Load Customer First --</option>
+                            </select>
+                        </div>
+
+                        <div id="ben-summary-text" class="text-[10px] text-gray-500 bg-gray-50 p-2 rounded border border-dashed border-gray-300 text-center leading-relaxed">
+                            Select a beneficiary to see aggregates.
+                        </div>
+
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Enter Amount</label>
+                            <input type="number" id="ben-sim-amount" class="w-full p-3 border border-gray-200 rounded-lg text-sm font-bold outline-none focus:border-purple-500" placeholder="₹ 0">
+                        </div>
+                        
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Compare Against period</label>
+                            <select id="ben-sim-period" class="w-full p-3 border border-gray-200 rounded-lg text-sm bg-white outline-none focus:border-purple-500">
+                                <option value="Daily">Daily Avg</option>
+                                <option value="Weekly">Weekly Avg</option>
+                                <option value="Monthly">Monthly Avg</option>
+                                <option value="Yearly">Yearly Avg</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="runBenSimulation()" class="w-full bg-purple-700 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-purple-900 transition active:scale-95 mt-4">
+                        SEND MONEY
+                    </button>
+
+                    <div id="ben-sim-result" class="hidden mt-4 p-3 rounded-lg border text-center text-xs"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000"; 
+        let currentTab = 'timeline';
+        let globalBenData = []; // Store beneficiary data locally
+
+        // 1. Init: Load Customers
+        window.onload = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/get_customers`);
+                const data = await res.json();
+                const sSelect = document.getElementById('cust-select');
+                sSelect.innerHTML = "<option value=''>-- Select Customer --</option>";
+                if (data.customers) {
+                    data.customers.forEach(cust => {
+                        let opt = document.createElement("option");
+                        opt.value = cust.id;
+                        opt.text = `${cust.name} (ID: ${cust.id})`;
+                        sSelect.add(opt);
+                    });
+                }
+            } catch (e) { alert("API Error. Backend Not Running."); }
+        };
+
+        // Tab Switching
+        function switchTab(tab) {
+            currentTab = tab;
+            const btnT = document.getElementById('btn-timeline');
+            const btnB = document.getElementById('btn-beneficiary');
+            const viewT = document.getElementById('view-timeline');
+            const viewB = document.getElementById('view-beneficiary');
+
+            if (tab === 'timeline') {
+                btnT.className = "pb-2 w-1/2 text-center tab-active transition";
+                btnB.className = "pb-2 w-1/2 text-center tab-inactive transition";
+                viewT.classList.remove('hidden');
+                viewB.classList.add('hidden');
+            } else {
+                btnT.className = "pb-2 w-1/2 text-center tab-inactive transition";
+                btnB.className = "pb-2 w-1/2 text-center tab-active transition";
+                viewT.classList.add('hidden');
+                viewB.classList.remove('hidden');
+            }
+            if (document.getElementById('cust-select').value) loadData();
+        }
+
+        // Main Data Loader
+        async function loadData() {
+            const custId = document.getElementById('cust-select').value;
+            if (!custId) return;
+            
+            // Reset Results
+            document.getElementById('sim-result').classList.add('hidden');
+            document.getElementById('ben-sim-result').classList.add('hidden');
+            document.getElementById('ben-summary-text').innerText = "Select a beneficiary to see aggregates.";
+
+            if (currentTab === 'timeline') fetchTimeline(custId);
+            else fetchBeneficiaries(custId);
+        }
+
+        // Fetch Timeline Data
+        async function fetchTimeline(custId) {
+            const container = document.getElementById('timeline-container');
+            container.innerHTML = '<div class="text-center text-xs text-gray-400">Loading...</div>';
+            try {
+                const res = await fetch(`${API_BASE}/get_profile_timeline`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({customer_id: parseInt(custId)})
+                });
+                const data = await res.json();
+                if (data.timeline && data.timeline.length > 0) {
+                    let html = `<table class="data-table"><thead><tr><th>Total</th><th>Days</th><th>Daily Avg</th><th>Weekly Avg</th><th>Monthly Avg</th><th>Yearly Avg</th></tr></thead><tbody>`;
+                    data.timeline.forEach(row => {
+                        html += `<tr><td class="font-bold text-blue-600">${row.grand_total}</td><td>${row.active_days}</td><td>${row.daily_avg}</td><td>${row.weekly_avg}</td><td>${row.monthly_avg}</td><td>${row.yearly_avg}</td></tr>`;
+                    });
+                    html += `</tbody></table>`;
+                    container.innerHTML = html;
+                } else { container.innerHTML = '<div class="text-center text-xs text-gray-400 py-4">No Data Found</div>'; }
+            } catch (e) { container.innerHTML = "Error."; }
+        }
+
+        // Fetch Beneficiary Dropdown Data
+        async function fetchBeneficiaries(custId) {
+            const simSelect = document.getElementById('ben-sim-select');
+            simSelect.innerHTML = "<option value=''>Loading...</option>";
+            globalBenData = []; // Clear local cache
+
+            try {
+                const res = await fetch(`${API_BASE}/get_profile_beneficiary`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({customer_id: parseInt(custId)})
+                });
+                const data = await res.json();
+                globalBenData = data.beneficiaries || [];
+                
+                simSelect.innerHTML = "<option value=''>-- Select to Pay --</option>";
+
+                if (globalBenData.length > 0) {
+                    globalBenData.forEach(row => {
+                        let opt = document.createElement("option");
+                        opt.value = row.beneficiary;
+                        opt.text = row.beneficiary;
+                        simSelect.add(opt);
+                    });
+                } else { 
+                    simSelect.innerHTML = "<option value=''>No Beneficiaries Found</option>";
+                }
+            } catch (e) { console.error("Error loading data"); }
+        }
+
+        // Update Summary Line (ADDED YEARLY)
+        function updateBenSummary() {
+            const selectedBenAcct = document.getElementById('ben-sim-select').value;
+            const summaryDiv = document.getElementById('ben-summary-text');
+            
+            if (!selectedBenAcct) {
+                summaryDiv.innerText = "Select a beneficiary to see aggregates.";
+                return;
+            }
+
+            const benData = globalBenData.find(b => b.beneficiary === selectedBenAcct);
+            if (benData) {
+                // FIXED: Added Yearly to the summary
+                summaryDiv.innerHTML = `
+                    <b>Daily:</b> ${benData.daily} &bull; 
+                    <b>Weekly:</b> ${benData.weekly} <br>
+                    <b>Monthly:</b> ${benData.monthly} &bull; 
+                    <b>Yearly:</b> ${benData.yearly}
+                `;
+            }
+        }
+
+        // SIMULATOR 1: GLOBAL VOLUME
+        async function runSimulation() {
+            const custId = document.getElementById('cust-select').value;
+            const amt = document.getElementById('sim-amount').value;
+            const period = document.getElementById('sim-period').value;
+            const resBox = document.getElementById('sim-result');
+
+            if (!custId || !amt) { alert("Select Customer and Amount first!"); return; }
+
+            try {
+                const res = await fetch(`${API_BASE}/simulate_volume_check`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ customer_id: parseInt(custId), amount: parseFloat(amt), period: period })
+                });
+                const data = await res.json();
+                showVerdict(resBox, data);
+            } catch (e) { alert("API Error"); }
+        }
+
+        // SIMULATOR 2: BENEFICIARY RELATIONSHIP
+        async function runBenSimulation() {
+            const custId = document.getElementById('cust-select').value;
+            const ben = document.getElementById('ben-sim-select').value;
+            const amt = document.getElementById('ben-sim-amount').value;
+            const period = document.getElementById('ben-sim-period').value;
+            const resBox = document.getElementById('ben-sim-result');
+
+            if (!custId || !ben || !amt) { alert("Select Customer, Beneficiary and Amount!"); return; }
+
+            try {
+                const res = await fetch(`${API_BASE}/simulate_beneficiary_volume_check`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        customer_id: parseInt(custId),
+                        beneficiary_account: ben,
+                        amount: parseFloat(amt),
+                        period: period
+                    })
+                });
+                const data = await res.json();
+                showVerdict(resBox, data);
+            } catch (e) { alert("API Error"); }
+        }
+
+        function showVerdict(box, data) {
+            box.classList.remove('hidden');
+            if (data.status === "BLOCKED") {
+                box.className = "mt-4 p-3 rounded-lg border border-red-200 bg-red-50 text-center block";
+                box.innerHTML = `<p class="text-red-700 font-bold text-sm">🛑 BLOCKED</p><p class="text-xs text-red-600 mt-1">${data.message}</p>`;
+            } else {
+                box.className = "mt-4 p-3 rounded-lg border border-green-200 bg-green-50 text-center block";
+                box.innerHTML = `<p class="text-green-700 font-bold text-sm">✅ APPROVED</p><p class="text-xs text-green-700 mt-1">${data.message}</p>`;
+            }
+        }
+    </script>
+
+</body>
+</html>
