@@ -3,145 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anomaly Defense Demo</title>
+    <title>Shell Hunter</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         .mobile-frame {
-            max-width: 400px; margin: 20px auto; background: #fff; min-height: 800px;
+            max-width: 400px; margin: 20px auto; background: #fff; min-height: 900px;
             border: 14px solid #1f2937; border-radius: 45px; overflow: hidden; position: relative;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column;
         }
         .notch {
             width: 140px; height: 30px; background: #1f2937; margin: 0 auto;
             border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; 
             position: absolute; left: 50%; transform: translateX(-50%); top: 0; z-index: 50;
         }
+        /* HEALTH BAR ANIMATION */
+        .health-bar-bg { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+        .health-bar-fill { height: 100%; width: 0%; transition: width 1s ease-out; }
     </style>
 </head>
 <body>
 
 <div class="mobile-frame">
     <div class="notch"></div>
-
-    <div class="bg-indigo-600 pt-12 pb-6 px-6 text-white shadow-md relative z-10">
+    
+    <div class="bg-gray-900 pt-12 pb-6 px-6 text-white shadow-md z-10">
         <div class="flex items-center gap-3">
             <a href="index.html" class="text-xl hover:opacity-80">←</a>
-            <h1 class="font-bold text-lg">Pay Vendor</h1>
+            <h1 class="font-bold text-lg">Vendor Auditor</h1>
         </div>
-        <p class="text-xs opacity-80 mt-1 pl-6">Protected by Isolation Forest</p>
+        <p class="text-xs opacity-60 mt-1 pl-6">Detection: Shell Companies (No OpEx)</p>
     </div>
 
-    <div id="input-screen" class="p-6 relative z-0">
-        <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg mb-6">
-            <p class="text-[10px] font-bold text-yellow-700 uppercase mb-2">🎓 Demo Mode</p>
-            <select id="scenario-selector" onchange="autoFill()" class="w-full text-sm p-2 border rounded bg-white cursor-pointer">
-                <option value="clean">🟢 Scenario 1: Legit Vendor (Rent)</option>
-                <option value="shell">🔴 Scenario 2: Shell Company (Zero OpEx)</option>
-            </select>
+    <div class="p-5 flex-grow overflow-y-auto space-y-6">
+
+        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
+            <p class="text-[10px] font-bold text-blue-800 uppercase mb-1">Isolation Forest Logic</p>
+            <p class="text-xs text-blue-900 leading-relaxed">
+                "Real companies pay rent & bills. Shell companies don't."
+                <br>This AI scans the vendor's history for <b>Operational Footprint</b>.
+            </p>
         </div>
 
-        <div class="space-y-4">
-            <div>
-                <label class="text-xs font-bold text-gray-500 uppercase">Vendor Name</label>
-                <input type="text" id="vendor" class="w-full p-4 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-indigo-500 transition" value="WeWork India">
-                <p class="text-[10px] text-gray-400 mt-1" id="vendor-status">Business Health: Verified</p>
+        <div>
+            <p class="text-xs font-bold text-gray-500 uppercase mb-3 ml-1">Select Vendor to Audit</p>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div onclick="selectVendor('legit')" id="card-legit" class="border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200">
+                    <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 transition">🏭</div>
+                    <p class="font-bold text-sm text-gray-800">WeWork India</p>
+                    <p class="text-[10px] text-gray-400">Co-Working Space</p>
+                </div>
+
+                <div onclick="selectVendor('shell')" id="card-shell" class="border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200">
+                    <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 transition">👻</div>
+                    <p class="font-bold text-sm text-gray-800">Apex Consulting</p>
+                    <p class="text-[10px] text-gray-400">Pvt Ltd</p>
+                </div>
+            </div>
+        </div>
+
+        <input type="hidden" id="vendor_name">
+        <input type="hidden" id="txn_amount">
+
+        <button onclick="auditVendor()" id="scan-btn" class="w-full bg-gray-400 text-white py-4 rounded-xl font-bold shadow-none transition transform active:scale-95 text-sm" disabled>
+            Select a Vendor
+        </button>
+
+        <div id="result-box" class="hidden mt-4 bg-white p-5 rounded-xl border border-gray-200 shadow-xl animate-fade-in-up">
+            
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Audit Verdict</p>
+                    <h2 class="text-xl font-bold mt-1" id="res-title">...</h2>
+                </div>
+                <div class="text-3xl" id="res-icon"></div>
             </div>
 
-            <div>
-                <label class="text-xs font-bold text-gray-500 uppercase">Invoice Amount (₹)</label>
-                <input type="number" id="amount" class="w-full p-4 bg-gray-50 rounded-xl font-bold text-lg outline-none border focus:border-indigo-500 transition" value="25000">
+            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 mb-4">
+                <div class="flex justify-between text-[10px] font-bold text-gray-500 mb-1">
+                    <span>OpEx Ratio (Rent/Bills)</span>
+                    <span id="res-opex">0%</span>
+                </div>
+                <div class="health-bar-bg">
+                    <div id="opex-bar" class="health-bar-fill bg-green-500"></div>
+                </div>
+                <p class="text-[9px] text-gray-400 mt-1 text-right">Healthy businesses > 5%</p>
             </div>
 
-            <button onclick="processPayment()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 transition mt-4 transform active:scale-95">
-                Process Invoice
-            </button>
-        </div>
-    </div>
+            <p class="text-xs text-gray-600 leading-relaxed mb-4" id="res-desc">...</p>
 
-    <div id="loading-screen" class="hidden h-full flex flex-col items-center justify-center bg-white absolute top-0 w-full z-20">
-        <div class="animate-spin w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full mb-4"></div>
-        <h2 class="font-bold text-gray-800">Auditing Vendor...</h2>
-        <p class="text-xs text-gray-500 mt-2">Calculating Outlier Score</p>
-    </div>
-
-    <div id="result-screen" class="hidden h-full flex flex-col items-center justify-center bg-white absolute top-0 w-full z-30 p-6 text-center">
-        <div id="res-icon" class="text-6xl mb-4"></div>
-        <h2 id="res-title" class="text-2xl font-bold mb-2"></h2>
-        <p id="res-msg" class="text-gray-500 mb-6"></p>
-
-        <div id="evidence-box" class="bg-red-50 p-4 rounded-xl border border-red-100 w-full text-left hidden">
-            <p class="text-[10px] font-bold text-red-500 uppercase">Isolation Forest Verdict</p>
-            <p class="text-sm font-bold text-gray-800 mt-1" id="iso-verdict"></p>
-            <p class="text-xs text-gray-600 mt-1 bg-white p-2 rounded border border-red-100" id="iso-reason"></p>
+            <div class="flex justify-between items-center pt-3 border-t border-gray-100">
+                <span class="text-[10px] font-mono text-gray-400" id="res-score">Score: 0.0</span>
+                <button onclick="reset()" class="px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black">Done</button>
+            </div>
         </div>
 
-        <button onclick="location.reload()" class="mt-8 w-full bg-gray-900 text-white py-3 rounded-xl font-bold">Try Again</button>
     </div>
 </div>
 
 <script>
-    const API_URL = "http://127.0.0.1:8000/analyze_transaction/";
+    const API_URL = "http://127.0.0.1:8000/analyze_anomaly_transaction";
 
-    function autoFill() {
-        const type = document.getElementById('scenario-selector').value;
-        if (type === 'clean') {
-            document.getElementById('vendor').value = "WeWork India";
-            document.getElementById('amount').value = "25000";
-            document.getElementById('vendor-status').innerText = "Business Health: Active OpEx";
+    function selectVendor(type) {
+        // UI Reset
+        document.getElementById('card-legit').className = "border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200";
+        document.getElementById('card-shell').className = "border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200";
+        document.getElementById('result-box').classList.add('hidden');
+
+        // Set Data
+        const btn = document.getElementById('scan-btn');
+        if (type === 'legit') {
+            document.getElementById('vendor_name').value = "WeWork India";
+            document.getElementById('txn_amount').value = 25000;
+            document.getElementById('card-legit').classList.replace('border-transparent', 'border-green-500');
+            document.getElementById('card-legit').classList.add('bg-green-50');
+            btn.innerText = "Audit WeWork History";
+            btn.className = "w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg transition transform active:scale-95 text-sm";
         } else {
-            document.getElementById('vendor').value = "SHELL_CORP_LTD";
-            document.getElementById('amount').value = "500000";
-            document.getElementById('vendor-status').innerText = "Business Health: No OpEx Detected";
+            document.getElementById('vendor_name').value = "Apex Shell Corp";
+            document.getElementById('txn_amount').value = 5000000;
+            document.getElementById('card-shell').classList.replace('border-transparent', 'border-red-500');
+            document.getElementById('card-shell').classList.add('bg-red-50');
+            btn.innerText = "Audit Apex History";
+            btn.className = "w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-xl font-bold shadow-lg transition transform active:scale-95 text-sm";
         }
+        btn.disabled = false;
     }
 
-    function processPayment() {
-        const type = document.getElementById('scenario-selector').value;
-        document.getElementById('loading-screen').classList.remove('hidden');
+    async function auditVendor() {
+        const btn = document.getElementById('scan-btn');
+        btn.innerText = "Calculating OpEx Ratio..."; btn.disabled = true;
 
-        let payload = {};
-        if (type === 'clean') {
-            payload = { customer_id: 101, amount: 25000, device_id: "Office_PC", beneficiary_account: "WeWork_ACC", account_age_days: 900 };
-        } else {
-            payload = { customer_id: 666, amount: 500000, device_id: "HQ_PC", beneficiary_account: "SHELL_CORP", account_age_days: 10 };
-        }
+        const payload = {
+            vendor_name: document.getElementById('vendor_name').value,
+            amount: parseFloat(document.getElementById('txn_amount').value)
+        };
 
-        fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        .then(response => response.json())
-        .then(data => showResult(data))
-        .catch(err => {
-            alert("API Error");
-            location.reload();
-        });
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            showResult(data);
+        } catch (e) { alert("API Error"); }
+        finally { btn.innerText = "Audit Complete"; }
     }
 
     function showResult(data) {
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('result-screen').classList.remove('hidden');
-        const evBox = document.getElementById('evidence-box');
+        const box = document.getElementById('result-box');
+        box.classList.remove('hidden');
 
-        if (data.status === "APPROVED") {
-            document.getElementById('res-icon').innerHTML = "✅";
-            document.getElementById('res-title').innerText = "Invoice Paid";
-            document.getElementById('res-msg').innerText = "Vendor Verified";
-            evBox.classList.add('hidden');
+        // 1. Text Updates
+        document.getElementById('res-title').innerText = data.verdict;
+        document.getElementById('res-desc').innerText = data.reason;
+        document.getElementById('res-score').innerText = `IsoForest Score: ${data.iso_score}`;
+        
+        // 2. OpEx Bar Visual
+        const ratio = data.opex_ratio;
+        document.getElementById('res-opex').innerText = ratio.toFixed(1) + "%";
+        const bar = document.getElementById('opex-bar');
+        
+        // Animation
+        setTimeout(() => {
+            bar.style.width = Math.min(ratio * 10, 100) + "%"; // Scale for visibility
+        }, 100);
+
+        if (data.status === "BLOCKED") {
+            // SHELL DETECTED
+            document.getElementById('res-title').className = "text-xl font-bold mt-1 text-red-600";
+            document.getElementById('res-icon').innerText = "🚫";
+            bar.className = "health-bar-fill bg-red-500"; // Red Bar (Low OpEx)
         } else {
-            document.getElementById('res-icon').innerHTML = "🛑";
-            document.getElementById('res-title').innerText = "Payment Blocked";
-            document.getElementById('res-msg').innerText = "Shell Company Detected";
-            evBox.classList.remove('hidden');
-
-            const isoData = data.model_breakdown.Anomaly_Model;
-            document.getElementById('iso-verdict').innerText = isoData.verdict;
-            document.getElementById('iso-reason').innerText = "Anomaly Score: " + isoData.score.toFixed(4);
+            // LEGIT BUSINESS
+            document.getElementById('res-title').className = "text-xl font-bold mt-1 text-green-600";
+            document.getElementById('res-icon').innerText = "✅";
+            bar.className = "health-bar-fill bg-green-500"; // Green Bar (Good OpEx)
         }
     }
+
+    function reset() {
+        document.getElementById('result-box').classList.add('hidden');
+        document.getElementById('scan-btn').innerText = "Select a Vendor";
+        document.getElementById('scan-btn').className = "w-full bg-gray-400 text-white py-4 rounded-xl font-bold shadow-none transition text-sm";
+        document.getElementById('scan-btn').disabled = true;
+        
+        // Reset Cards
+        document.getElementById('card-legit').className = "border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200";
+        document.getElementById('card-shell').className = "border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200";
+    }
 </script>
+
 </body>
 </html>

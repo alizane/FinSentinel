@@ -89,6 +89,35 @@ if not df.empty:
     with c1:
         st.markdown("**🛡️ Attack Vector Distribution**")
         if not fraud_df.empty:
+            # --- 1. NORMALIZATION LOGIC (Fixing Inconsistent Names) ---
+            def normalize_fraud_type(val):
+                s = str(val).lower()
+                # Prioritize keywords to map to the 6 Canonical Types
+                if 'star' in s or 'mule' in s: return 'Star Topology (Mule)'
+                if 'shell' in s or 'zombie' in s: return 'Shell Company (Zombie)'
+                if 'device' in s or 'synthetic' in s: return 'Synthetic Identity'
+                if 'cycle' in s or 'circular' in s or 'loop' in s: return 'Circular Topology'
+                if 'location' in s or 'travel' in s or 'hopping' in s: return 'Location Hopping'
+                if 'amount' in s or 'velocity' in s or 'spike' in s or 'pattern' in s: return 'Amount/Velocity Spike'
+                return 'Other' # Should not happen if logic covers all
+
+            # Apply mapping
+            plot_df = fraud_df.copy()
+            plot_df['clean_type'] = plot_df['fraud_type'].apply(normalize_fraud_type)
+            
+            # Filter to remove 'Other' if strictly unwanted, or keep for safety
+            # The prompt requested ONLY the 6 specific keys.
+            target_types = [
+                'Star Topology (Mule)', 
+                'Shell Company (Zombie)', 
+                'Synthetic Identity', 
+                'Circular Topology', 
+                'Location Hopping', 
+                'Amount/Velocity Spike'
+            ]
+            plot_df = plot_df[plot_df['clean_type'].isin(target_types)]
+
+            # Defined Color Map
             cmap = {
                 'Star Topology (Mule)': '#FF5252',
                 'Shell Company (Zombie)': '#FF7043',
@@ -97,8 +126,13 @@ if not df.empty:
                 'Location Hopping': '#26C6DA',
                 'Amount/Velocity Spike': '#EF5350'
             }
-            fig = px.pie(fraud_df, names='fraud_type', title='Crime Types', hole=0.4, color='fraud_type', color_discrete_map=cmap)
-            st.plotly_chart(fig, use_container_width=True)
+            
+            if not plot_df.empty:
+                fig = px.pie(plot_df, names='clean_type', title='Crime Types', hole=0.4, 
+                             color='clean_type', color_discrete_map=cmap)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No matching threats found.")
         else: st.info("No active threats.")
 
     with c2:
@@ -125,7 +159,6 @@ if not df.empty:
         6. **Velocity Spike:** Sudden massive amount deviation.
         """)
 
-   
     # --- WATCHLIST ---
     st.markdown("---")
     st.write("**⚠️ Top Risk Entities (Watchlist)**")
