@@ -26,11 +26,11 @@ with col1:
 with col2:
     st.title("FinSentinel: ML-Driven Fraud Detection")
     st.markdown("### Next-Gen Financial Crime Prevention Core")
-    st.markdown("**V3 Architecture: Hybrid Tribunal (Random Forest + Isolation Forest + GNN)**")
+    st.markdown("**V3 Architecture: Hybrid Ensemble (Random Forest + Isolation Forest + GNN)**")
 
 st.markdown("---")
 
-# --- TEAM INFO (Simple Version - No Pandas needed) ---
+# --- TEAM INFO ---
 st.subheader("👨‍💻 Project Team")
 
 st.markdown("### 🏫 Fr. Conceicao Rodrigues College of Engineering")
@@ -57,43 +57,51 @@ with c2:
 st.header("🚀 Project Mission")
 st.markdown("""
 **FinSentinel** is a comprehensive financial security suite designed to detect sophisticated white-collar crimes. 
-It utilizes a **'Tribunal'** of three distinct AI models to analyze transactions, detect money laundering rings, and flag synthetic identities in real-time.
+It utilizes a multi-model architecture to analyze transactions, detect money laundering rings, and flag synthetic identities in real-time.
 """)
 
 st.markdown("---")
 
-# --- SYSTEM MODULES (2x2 GRID) ---
-st.subheader("📂 System Modules")
+# --- SYSTEM MODULES (Technical Naming) ---
+st.subheader("📂 System Architecture Modules")
 
-# ROW 1
+# ROW 1: Analytics & Explainability
 row1_col1, row1_col2 = st.columns(2)
 
 with row1_col1:
-    st.info("**1. The Face (User App)**")
-    st.markdown("### 📱 App Simulator")
-    st.caption("A 'PhonePe' clone to simulate live user transactions. Use this to inject 'Ghost' and 'Mule' attacks.")
-    st.markdown("👉 **Go to: App Simulator**")
+    st.info("**1. Global Overview**")
+    st.markdown("### 🏦 Analytics Dashboard")
+    st.caption("Primary Command Center. View global transaction volume, fraud heatmaps, and high-level alert statistics.")
+    st.markdown("👉 **Module: Overview**")
 
 with row1_col2:
-    st.error("**2. The Brain (Bank Dashboard)**")
-    st.markdown("### 🏦 Global Overview")
-    st.caption("The Command Center. View global transaction volume, fraud heatmaps, and 'Zombie' company alerts.")
-    st.markdown("👉 **Go to: Overview**")
+    st.warning("**2. Model Explainability**")
+    st.markdown("### ⚡ Inference Engine")
+    st.caption("Real-time decision analysis. Visualize voting logic from Random Forest, Isolation Forest, and GNN models per transaction.")
+    st.markdown("👉 **Module: Model Explainability**")
 
-# ROW 2
+# ROW 2: Administration & Profiles
 row2_col1, row2_col2 = st.columns(2)
 
 with row2_col1:
-    st.warning("**3. The Tribunal (Live Detection)**")
-    st.markdown("### ⚡ Real-Time Tribunal")
-    st.caption("Watch the 3 Judges (Historian, Auditor, Sheriff) vote on a single transaction in real-time.")
-    st.markdown("👉 **Go to: Real-Time Detection**")
+    st.error("**3. Pipeline Administration**")
+    st.markdown("### ⚙️ ETL & Data Ops")
+    st.caption("Manage the data pipeline, execute batch processing, refresh database views, and monitor system health.")
+    st.markdown("👉 **Module: Pipeline Admin**")
 
 with row2_col2:
-    st.success("**4. The Guts (Forensics & Admin)**")
-    st.markdown("### ⚙️ Pipeline & Customer 360")
-    st.caption("Manage the ETL pipeline, database views, and perform deep-dive audits on suspicious customers.")
-    st.markdown("👉 **Go to: Pipeline Admin / Customer 360**")
+    st.success("**4. Customer 360**")
+    st.markdown("### 👤 Entity Profiling")
+    st.caption("Deep-dive forensic audit on specific customers. View transaction history, behavioral graphs, and risk scores.")
+    st.markdown("👉 **Module: Customer 360**")
+
+# ROW 3: Simulation (Separate)
+st.markdown("---")
+st.markdown("### 📱 External Interface")
+with st.container():
+    st.info("**5. App Simulator**")
+    st.caption("Transaction Injection Utility. Simulates client-side activity to test fraud detection response mechanisms.")
+    st.markdown("👉 **Module: App Simulator**")
 
 st.markdown("---")
 
@@ -106,4 +114,3 @@ t3.metric("Database", "PostgreSQL")
 t4.metric("AI Models", "RF + IsoForest + GNN")
 
 st.markdown("---")
-
