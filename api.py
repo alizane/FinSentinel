@@ -404,9 +404,9 @@ def analyze_pattern_transaction(req: PatternRequest):
                 with engine.connect() as conn:
                     avg_val = conn.execute(avg_q).fetchone()[0] or 0
                 
-                if avg_val > 0 and req.amount > (avg_val * 5):
+                if avg_val > 0 and req.amount > (avg_val * 2):
                     rf_score += 0.55
-                    reasons.append(f"💰 Amount > 5x Avg")
+                    reasons.append(f"💰 Amount > 2x Avg")
                 elif req.amount > 200000:
                     rf_score += 0.4
                     reasons.append("💰 High Value")
@@ -628,7 +628,7 @@ def get_profile_beneficiary(req: CustomerDetailRequest):
         print(f"Beneficiary Error: {e}")
         return {"status": "error", "message": str(e)}
     
-    # ==========================================
+# ==========================================
 #   SECTION 9: VOLUME SIMULATOR (2x Rule)
 # ==========================================
 

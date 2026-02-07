@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Scenarios</title>
+    <title>Shell Hunter</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         .mobile-frame {
-            max-width: 400px; margin: 20px auto; background: #ffffff; min-height: 850px;
+            max-width: 400px; margin: 20px auto; background: #fff; min-height: 900px;
             border: 14px solid #1f2937; border-radius: 45px; overflow: hidden; position: relative;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column;
         }
@@ -18,223 +18,183 @@
             border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; 
             position: absolute; left: 50%; transform: translateX(-50%); top: 0; z-index: 50;
         }
-        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
-        .tab-inactive { color: #6b7280; font-weight: 500; }
-        
-        /* Table Styles */
-        .data-table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; }
-        .data-table { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 10px; }
-        .data-table th { background: #f3f4f6; color: #6b7280; font-weight: 700; text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; text-transform: uppercase; white-space: nowrap;}
-        .data-table td { padding: 8px; border-bottom: 1px solid #f3f4f6; color: #374151; white-space: nowrap; }
-        .data-table tr:last-child td { border-bottom: none; }
+        /* HEALTH BAR ANIMATION */
+        .health-bar-bg { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+        .health-bar-fill { height: 100%; width: 0%; transition: width 1s ease-out; }
     </style>
 </head>
 <body>
 
-    <div class="mobile-frame">
-        <div class="notch"></div>
-
-        <div class="bg-white pt-12 pb-4 px-6 border-b border-gray-100 sticky top-0 z-40">
-            <div class="flex items-center gap-3 mb-4">
-                <a href="index.html" class="text-xl text-gray-600 hover:text-gray-900">←</a>
-                <h1 class="font-extrabold text-gray-800 text-lg">Scenario <span class="text-blue-500">Profiling</span></h1>
-            </div>
-
-            <div class="flex justify-around text-sm">
-                <button onclick="switchTab('timeline')" id="btn-timeline" class="pb-2 w-1/2 text-center tab-active transition">
-                    Velocity Profile
-                </button>
-                <button onclick="switchTab('beneficiary')" id="btn-beneficiary" class="pb-2 w-1/2 text-center tab-inactive transition">
-                    Relational Profile
-                </button>
-            </div>
+<div class="mobile-frame">
+    <div class="notch"></div>
+    
+    <div class="bg-gray-900 pt-12 pb-6 px-6 text-white shadow-md z-10">
+        <div class="flex items-center gap-3">
+            <a href="index.html" class="text-xl hover:opacity-80">←</a>
+            <h1 class="font-bold text-lg">Vendor Auditor</h1>
         </div>
-
-        <div class="p-5 flex-grow overflow-y-auto bg-gray-50">
-            
-            <div class="mb-6">
-                <label class="text-[10px] font-bold text-gray-400 uppercase">Select Customer</label>
-                <select id="cust-select" onchange="loadData()" class="w-full p-3 mt-1 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 outline-none shadow-sm focus:border-blue-500 transition">
-                    <option value="">Loading Customers...</option>
-                </select>
-            </div>
-
-            <div id="view-timeline" class="space-y-3">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-xs font-bold text-gray-500 uppercase">Global Spending Velocity</h3>
-                    <span class="text-[9px] bg-blue-100 text-blue-600 px-2 py-1 rounded">Feature Store</span>
-                </div>
-                
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
-                    <div id="timeline-container" class="data-table-container">
-                        <div class="text-center text-gray-400 text-xs py-10">Select a customer</div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="view-beneficiary" class="hidden space-y-3">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-xs font-bold text-gray-500 uppercase">A -> B Relationship Strength</h3>
-                    <span class="text-[9px] bg-purple-100 text-purple-600 px-2 py-1 rounded">Graph Features</span>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
-                    <div id="ben-container" class="data-table-container">
-                        <div class="text-center text-gray-400 text-xs py-10">Select a customer</div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
+        <p class="text-xs opacity-60 mt-1 pl-6">Detection: Shell Companies (No OpEx)</p>
     </div>
 
-    <script>
-        const API_BASE = "http://127.0.0.1:8000"; 
-        let currentTab = 'timeline';
+    <div class="p-5 flex-grow overflow-y-auto space-y-6">
 
-        // 1. Init: Load Customers
-        window.onload = async () => {
-            try {
-                const res = await fetch(`${API_BASE}/get_customers`);
-                const data = await res.json();
-                const sSelect = document.getElementById('cust-select');
-                sSelect.innerHTML = "<option value=''>-- Select to Analyze --</option>";
-                if (data.customers) {
-                    data.customers.forEach(cust => {
-                        let opt = document.createElement("option");
-                        opt.value = cust.id;
-                        opt.text = `${cust.name} (ID: ${cust.id})`;
-                        sSelect.add(opt);
-                    });
-                }
-            } catch (e) { alert("API Error. Is backend running?"); }
+        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
+            <p class="text-[10px] font-bold text-blue-800 uppercase mb-1">Isolation Forest Logic</p>
+            <p class="text-xs text-blue-900 leading-relaxed">
+                "Real companies pay rent & bills. Shell companies don't."
+                <br>This AI scans the vendor's history for <b>Operational Footprint</b>.
+            </p>
+        </div>
+
+        <div>
+            <p class="text-xs font-bold text-gray-500 uppercase mb-3 ml-1">Select Vendor to Audit</p>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div onclick="selectVendor('legit')" id="card-legit" class="border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200">
+                    <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 transition">🏭</div>
+                    <p class="font-bold text-sm text-gray-800">WeWork India</p>
+                    <p class="text-[10px] text-gray-400">Co-Working Space</p>
+                </div>
+
+                <div onclick="selectVendor('shell')" id="card-shell" class="border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200">
+                    <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 transition">👻</div>
+                    <p class="font-bold text-sm text-gray-800">Apex Consulting</p>
+                    <p class="text-[10px] text-gray-400">Pvt Ltd</p>
+                </div>
+            </div>
+        </div>
+
+        <input type="hidden" id="vendor_name">
+        <input type="hidden" id="txn_amount">
+
+        <button onclick="auditVendor()" id="scan-btn" class="w-full bg-gray-400 text-white py-4 rounded-xl font-bold shadow-none transition transform active:scale-95 text-sm" disabled>
+            Select a Vendor
+        </button>
+
+        <div id="result-box" class="hidden mt-4 bg-white p-5 rounded-xl border border-gray-200 shadow-xl animate-fade-in-up">
+            
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Audit Verdict</p>
+                    <h2 class="text-xl font-bold mt-1" id="res-title">...</h2>
+                </div>
+                <div class="text-3xl" id="res-icon"></div>
+            </div>
+
+            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 mb-4">
+                <div class="flex justify-between text-[10px] font-bold text-gray-500 mb-1">
+                    <span>OpEx Ratio (Rent/Bills)</span>
+                    <span id="res-opex">0%</span>
+                </div>
+                <div class="health-bar-bg">
+                    <div id="opex-bar" class="health-bar-fill bg-green-500"></div>
+                </div>
+                <p class="text-[9px] text-gray-400 mt-1 text-right">Healthy businesses > 5%</p>
+            </div>
+
+            <p class="text-xs text-gray-600 leading-relaxed mb-4" id="res-desc">...</p>
+
+            <div class="flex justify-between items-center pt-3 border-t border-gray-100">
+                <span class="text-[10px] font-mono text-gray-400" id="res-score">Score: 0.0</span>
+                <button onclick="reset()" class="px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black">Done</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000/analyze_anomaly_transaction";
+
+    function selectVendor(type) {
+        // UI Reset
+        document.getElementById('card-legit').className = "border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200";
+        document.getElementById('card-shell').className = "border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200";
+        document.getElementById('result-box').classList.add('hidden');
+
+        // Set Data
+        const btn = document.getElementById('scan-btn');
+        if (type === 'legit') {
+            document.getElementById('vendor_name').value = "WeWork India";
+            document.getElementById('txn_amount').value = 25000;
+            document.getElementById('card-legit').classList.replace('border-transparent', 'border-green-500');
+            document.getElementById('card-legit').classList.add('bg-green-50');
+            btn.innerText = "Audit WeWork History";
+            btn.className = "w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg transition transform active:scale-95 text-sm";
+        } else {
+            document.getElementById('vendor_name').value = "Apex Shell Corp";
+            document.getElementById('txn_amount').value = 5000000;
+            document.getElementById('card-shell').classList.replace('border-transparent', 'border-red-500');
+            document.getElementById('card-shell').classList.add('bg-red-50');
+            btn.innerText = "Audit Apex History";
+            btn.className = "w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-xl font-bold shadow-lg transition transform active:scale-95 text-sm";
+        }
+        btn.disabled = false;
+    }
+
+    async function auditVendor() {
+        const btn = document.getElementById('scan-btn');
+        btn.innerText = "Calculating OpEx Ratio..."; btn.disabled = true;
+
+        const payload = {
+            vendor_name: document.getElementById('vendor_name').value,
+            amount: parseFloat(document.getElementById('txn_amount').value)
         };
 
-        // 2. Switch Tabs
-        function switchTab(tab) {
-            currentTab = tab;
-            const btnT = document.getElementById('btn-timeline');
-            const btnB = document.getElementById('btn-beneficiary');
-            const viewT = document.getElementById('view-timeline');
-            const viewB = document.getElementById('view-beneficiary');
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            showResult(data);
+        } catch (e) { alert("API Error"); }
+        finally { btn.innerText = "Audit Complete"; }
+    }
 
-            if (tab === 'timeline') {
-                btnT.className = "pb-2 w-1/2 text-center tab-active transition";
-                btnB.className = "pb-2 w-1/2 text-center tab-inactive transition";
-                viewT.classList.remove('hidden');
-                viewB.classList.add('hidden');
-            } else {
-                btnT.className = "pb-2 w-1/2 text-center tab-inactive transition";
-                btnB.className = "pb-2 w-1/2 text-center tab-active transition";
-                viewT.classList.add('hidden');
-                viewB.classList.remove('hidden');
-            }
-            if (document.getElementById('cust-select').value) loadData();
+    function showResult(data) {
+        const box = document.getElementById('result-box');
+        box.classList.remove('hidden');
+
+        // 1. Text Updates
+        document.getElementById('res-title').innerText = data.verdict;
+        document.getElementById('res-desc').innerText = data.reason;
+        document.getElementById('res-score').innerText = `IsoForest Score: ${data.iso_score}`;
+        
+        // 2. OpEx Bar Visual
+        const ratio = data.opex_ratio;
+        document.getElementById('res-opex').innerText = ratio.toFixed(1) + "%";
+        const bar = document.getElementById('opex-bar');
+        
+        // Animation
+        setTimeout(() => {
+            bar.style.width = Math.min(ratio * 10, 100) + "%"; // Scale for visibility
+        }, 100);
+
+        if (data.status === "BLOCKED") {
+            // SHELL DETECTED
+            document.getElementById('res-title').className = "text-xl font-bold mt-1 text-red-600";
+            document.getElementById('res-icon').innerText = "🚫";
+            bar.className = "health-bar-fill bg-red-500"; // Red Bar (Low OpEx)
+        } else {
+            // LEGIT BUSINESS
+            document.getElementById('res-title').className = "text-xl font-bold mt-1 text-green-600";
+            document.getElementById('res-icon').innerText = "✅";
+            bar.className = "health-bar-fill bg-green-500"; // Green Bar (Good OpEx)
         }
+    }
 
-        // 3. Load Data
-        async function loadData() {
-            const custId = document.getElementById('cust-select').value;
-            if (!custId) return;
-
-            if (currentTab === 'timeline') fetchTimeline(custId);
-            else fetchBeneficiaries(custId);
-        }
-
-        // 4. Render Timeline (Single Row usually)
-        async function fetchTimeline(custId) {
-            const container = document.getElementById('timeline-container');
-            container.innerHTML = '<div class="text-center text-xs text-gray-400">Loading profile...</div>';
-
-            try {
-                const res = await fetch(`${API_BASE}/get_profile_timeline`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({customer_id: parseInt(custId)})
-                });
-                const data = await res.json();
-
-                if (data.timeline && data.timeline.length > 0) {
-                    let html = `
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Total Spend</th>
-                                    <th>Active Days</th>
-                                    <th>Daily Avg</th>
-                                    <th>Weekly Avg</th>
-                                    <th>Monthly Avg</th>
-                                    <th>Yearly Avg</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-                    data.timeline.forEach(row => {
-                        html += `
-                            <tr>
-                                <td class="font-bold text-blue-600">${row.grand_total}</td>
-                                <td>${row.active_days}</td>
-                                <td>${row.daily_avg}</td>
-                                <td>${row.weekly_avg}</td>
-                                <td>${row.monthly_avg}</td>
-                                <td>${row.yearly_avg}</td>
-                            </tr>
-                        `;
-                    });
-                    html += `</tbody></table>`;
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = '<div class="text-center text-xs text-gray-400">No velocity profile found.</div>';
-                }
-            } catch (e) { container.innerHTML = "Error loading data."; }
-        }
-
-        // 5. Render Beneficiaries
-        async function fetchBeneficiaries(custId) {
-            const container = document.getElementById('ben-container');
-            container.innerHTML = '<div class="text-center text-xs text-gray-400">Loading graph...</div>';
-
-            try {
-                const res = await fetch(`${API_BASE}/get_profile_beneficiary`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({customer_id: parseInt(custId)})
-                });
-                const data = await res.json();
-
-                if (data.beneficiaries && data.beneficiaries.length > 0) {
-                    let html = `
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Beneficiary</th>
-                                    <th>Total Sent</th>
-                                    <th>Count</th>
-                                    <th>Active Days</th>
-                                    <th>Daily Avg</th>
-                                    <th>Monthly Avg</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-                    data.beneficiaries.forEach(row => {
-                        html += `
-                            <tr>
-                                <td class="font-bold text-gray-700">${row.beneficiary}</td>
-                                <td class="text-blue-600 font-bold">${row.total}</td>
-                                <td>${row.count}</td>
-                                <td>${row.days}</td>
-                                <td>${row.daily}</td>
-                                <td>${row.monthly}</td>
-                            </tr>
-                        `;
-                    });
-                    html += `</tbody></table>`;
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = '<div class="text-center text-xs text-gray-400">No relationship profile found.</div>';
-                }
-            } catch (e) { container.innerHTML = "Error loading data."; }
-        }
-    </script>
+    function reset() {
+        document.getElementById('result-box').classList.add('hidden');
+        document.getElementById('scan-btn').innerText = "Select a Vendor";
+        document.getElementById('scan-btn').className = "w-full bg-gray-400 text-white py-4 rounded-xl font-bold shadow-none transition text-sm";
+        document.getElementById('scan-btn').disabled = true;
+        
+        // Reset Cards
+        document.getElementById('card-legit').className = "border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200";
+        document.getElementById('card-shell').className = "border-2 border-transparent bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition text-center group ring-1 ring-gray-200";
+    }
+</script>
 
 </body>
 </html>
