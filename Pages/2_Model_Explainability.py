@@ -5,267 +5,273 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import graphviz # Needed for the new flowchart
 
 # --- CONFIG ---
-st.set_page_config(page_title="Inside the AI", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Model Inference Engine", page_icon="⚙️", layout="wide")
 
-st.title("🧠 Inside the System: Visual Intelligence")
-st.markdown("### How the 3-Model System Decides Fate")
+st.title("⚙️ System Architecture & Inference Logic")
+st.markdown("### Hybrid Ensemble Decision Matrix")
 
 # --- TAB SELECTION ---
 tab1, tab2, tab3, tab4 = st.tabs([
-    "⚙️ System Architecture", 
-    "🧐 Isolation Forest (Unsupervised)", 
-    "🤠 Graph Neural Network (GNN)", 
-    "📜 Random Forest (Supervised)"
+    "🏗️ System Architecture", 
+    "📊 Isolation Forest (Anomaly)", 
+    "🕸️ Graph Neural Network (GNN)", 
+    "🌲 Random Forest (Supervised)"
 ])
 
 # ==========================================
-# TAB 1: THE ARCHITECTURE FLOWCHART
+# TAB 1: THE ARCHITECTURE FLOWCHART (GRAPHVIZ)
 # ==========================================
 with tab1:
-    st.subheader("The Decision Pipeline")
-    st.caption("Live Data Journey: Dual-Stream Processing")
+    st.subheader("Transaction Processing Pipeline")
+    st.caption("Data Flow: Ingestion → Enrichment → Multi-Model Inference → Final Decision")
     
     col_flow, col_expl = st.columns([3, 1])
     
     with col_flow:
-        G = nx.DiGraph()
+        # Use Graphviz for perfect rectangles, arrows, and text rendering
+        dot = graphviz.Digraph(comment='System Architecture')
         
-        # NODES
-        G.add_node("USER_A", label="User A\n(Legit)", pos=(0, 2), color='#AED581')
-        G.add_node("USER_B", label="User B\n(Attacker)", pos=(0, -2), color='#E57373')
-        G.add_node("API", label="API Gateway\n(Traffic Control)", pos=(2, 0), color='#4FC3F7')
-        G.add_node("DB", label="Enrichment\n(DB Lookup)", pos=(4, 0), color='#B0BEC5')
-        G.add_node("J1", label="M1: Random Forest\n(Supervised)", pos=(6, 2), color='#FFD54F')
-        G.add_node("J2", label="M2: Isolation Forest\n(Unsupervised)", pos=(6, 0), color='#FFD54F')
-        G.add_node("J3", label="M3: Graph Neural Net\n(GNN)", pos=(6, -2), color='#FFD54F')
-        G.add_node("VERDICT", label="FINAL\nVERDICT", pos=(8, 0), color='#FF5722')
+        # Graph Attributes for Left-to-Right flow and clean lines
+        dot.attr(rankdir='LR', splines='polyline', nodesep='0.6', ranksep='0.8', bgcolor='transparent')
 
-        # EDGES
-        edges = [
-            ("USER_A", "API"), ("USER_B", "API"), ("API", "DB"),
-            ("DB", "J1"), ("DB", "J2"), ("DB", "J3"),
-            ("J1", "VERDICT"), ("J2", "VERDICT"), ("J3", "VERDICT"),
-        ]
-        G.add_edges_from(edges)
-        
-        # DRAWING
-        pos = nx.get_node_attributes(G, 'pos')
-        colors = nx.get_node_attributes(G, 'color').values()
-        labels = nx.get_node_attributes(G, 'label')
-        
-        fig, ax = plt.subplots(figsize=(12, 7))
-        nx.draw_networkx_nodes(G, pos, ax=ax, node_size=10000, node_color=colors, edgecolors='black', linewidths=2)
-        nx.draw_networkx_edges(G, pos, ax=ax, edge_color='#455A64', width=3.0, arrowstyle='-|>', arrowsize=30, node_size=9000, connectionstyle='arc3,rad=0.0')
-        nx.draw_networkx_labels(G, pos, ax=ax, labels=labels, font_size=9, font_weight="bold", font_family="sans-serif")
-        ax.margins(0.2)
-        ax.axis('off')
-        st.pyplot(fig)
+        # Default Node Styles (Rounded Rectangles)
+        dot.attr('node', shape='box', style='filled, rounded', fontname="sans-serif", fontsize='12', penwidth='1.5', fixedsize='false', margin='0.2')
+        # Default Edge Styles
+        dot.attr('edge', fontname="sans-serif", fontsize='10', penwidth='1.5', arrowsize='1.2')
+
+        # --- Define Nodes with Technical Colors ---
+        # Source/Ingestion (Grey/Light Blue)
+        dot.node('USER', 'User / Client\n(Source)', fillcolor='#CFD8DC', color='#455A64')
+        dot.node('API', 'API Gateway\n(Ingestion)', fillcolor='#B3E5FC', color='#0288D1')
+        dot.node('DB', 'Feature Store\n(Enrichment)', fillcolor='#CFD8DC', color='#455A64')
+
+        # Models (Yellow - Aligned in a vertical group automatically by rankdir=LR)
+        dot.attr('node', fillcolor='#FFF59D', color='#FBC02D')
+        dot.node('M1', 'M1: Random Forest\n(Supervised)')
+        dot.node('M2', 'M2: Iso Forest\n(Anomaly)')
+        dot.node('M3', 'M3: Graph Neural\n(Topology)')
+        dot.node('M4', 'M4: Rule Engine\n(Scenarios)')
+
+        # Output (Orange)
+        dot.node('OUTPUT', 'AGGREGATED\nOUTPUT', fillcolor='#FFCCBC', color='#E64A19')
+
+        # --- Define Edges (Arrows implied by Digraph) ---
+        # Main Spine
+        dot.edge('USER', 'API')
+        dot.edge('API', 'DB')
+
+        # Fan-out to models
+        dot.edge('DB', 'M1')
+        dot.edge('DB', 'M2')
+        dot.edge('DB', 'M3')
+        dot.edge('DB', 'M4')
+
+        # Fan-in to output
+        dot.edge('M1', 'OUTPUT')
+        dot.edge('M2', 'OUTPUT')
+        dot.edge('M3', 'OUTPUT')
+        dot.edge('M4', 'OUTPUT')
+
+        # Render the chart
+        st.graphviz_chart(dot, use_container_width=True)
 
     with col_expl:
-        st.info("💡 **Pipeline Logic**")
+        st.info("ℹ️ **Pipeline Specification**")
         st.markdown("""
-        **1. Dual Ingestion:** System accepts concurrent streams (Safe vs Attack).
-        **2. The System:** Data is enriched and broadcast to 3 Technical Models.
-        **3. Consensus:** Logical **OR** gate. Any 'Block' vote kills the transaction.
+        **1. Transaction Ingestion Stream:**
+        Unified entry point for all client requests via API Gateway.
+        
+        **2. Feature Enrichment:**
+        Real-time lookup of historical profiles (Velocity, Beneficiary Stats) from the Feature Store.
+        
+        **3. Ensemble Inference:**
+        Parallel evaluation by 4 specialized engines:
+        * **M1:** Supervised Learning (Patterns)
+        * **M2:** Unsupervised Learning (Outliers)
+        * **M3:** Graph Topology (Relationships)
+        * **M4:** Deterministic Rules (Scenarios)
+        
+        **4. Aggregation Logic:**
+        Priority-based voting mechanism. A high-risk flag from any single model triggers a block.
         """)
 
 
 # ==========================================
-# TAB 2: ISOLATION FOREST (VISUAL ZONES)
+# TAB 2: ISOLATION FOREST (DECISION BOUNDARY)
 # ==========================================
 with tab2:
-    st.subheader("Visualizing 'The Zombie' (Shell Company)")
-    st.markdown("The **Isolation Forest** partitions the mathematical space. We visualize this as 'Safe Zones' vs 'Kill Zones'.")
+    st.subheader("Outlier Detection: Statistical Deviation")
+    st.markdown("Visualizing the **Decision Boundary** in high-dimensional feature space (projected to 2D).")
     
     col1, col2 = st.columns([3, 1])
     
     with col1:
         np.random.seed(42)
+        # Normal Cluster
         norm_x = np.random.normal(60, 10, 200)
         norm_y = norm_x * 0.65 + np.random.normal(0, 5, 200)
+        
+        # Anomalies (Shell Company Signature)
         shell_x = np.random.normal(70, 5, 15)
         shell_y = np.random.normal(2, 1, 15) 
 
         fig = go.Figure()
+        # Safe Region
         fig.add_shape(type="rect", x0=30, y0=20, x1=90, y1=80, fillcolor="rgba(0, 255, 0, 0.1)", line=dict(width=0), layer="below")
+        # Anomaly Region
         fig.add_shape(type="rect", x0=50, y0=-5, x1=90, y1=15, fillcolor="rgba(255, 0, 0, 0.2)", line=dict(width=0), layer="below")
-        fig.add_trace(go.Scatter(x=norm_x, y=norm_y, mode='markers', name='Healthy Business', marker=dict(color='blue', size=8, opacity=0.6)))
-        fig.add_trace(go.Scatter(x=shell_x, y=shell_y, mode='markers', name='🚨 SHELL COMPANY', marker=dict(color='red', size=12, symbol='x')))
-        fig.update_layout(title="Isolation Forest Decision Boundary", xaxis_title="Revenue (₹ Lakhs)", yaxis_title="OpEx (₹ Lakhs)", legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
+        
+        fig.add_trace(go.Scatter(x=norm_x, y=norm_y, mode='markers', name='In-Distribution (Normal)', marker=dict(color='blue', size=8, opacity=0.6)))
+        fig.add_trace(go.Scatter(x=shell_x, y=shell_y, mode='markers', name='Out-of-Distribution (Anomaly)', marker=dict(color='red', size=12, symbol='x')))
+        
+        fig.update_layout(
+            title="Isolation Forest: Feature Space Projection", 
+            xaxis_title="Transaction Volume (Normalized)", 
+            yaxis_title="Operational Expenses (Normalized)", 
+            legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
+        )
         st.plotly_chart(fig, use_container_width=True)
         
     with col2:
-        st.write("### 🧠 Visual Logic")
+        st.write("### 📉 Analysis")
         st.warning("""
-        **The Kill Zone:**
-        Real businesses (Blue) spend money to make money. 
-        Shell companies (Red X) break this correlation. High revenue + Zero expense = **Anomaly**.
+        **Anomaly Signature:**
+        High Transaction Volume paired with near-zero Operational Expenses (OpEx) violates the standard regression line of legitimate businesses.
+        
+        **Metric:**
+        These points have a negative Anomaly Score (e.g., -0.75), triggering an immediate flag.
         """)
 
 # ==========================================
-# TAB 3: GRAPH NEURAL NETWORK (ALL 3 TOPOLOGIES)
+# TAB 3: GRAPH NEURAL NETWORK (TOPOLOGY)
 # ==========================================
 with tab3:
-    st.subheader("Visualizing The Network Crimes")
-    st.markdown("The **Graph Neural Network (GNN)** uses **Graph Theory** to detect shapes that signify specific crimes.")
+    st.subheader("Network Topology Analysis")
+    st.markdown("The **GNN** analyzes node relationships to identify structural fraud patterns.")
 
     # --- SELECTOR ---
     crime_type = st.radio(
-        "Select Crime Topology to Analyze:",
-        ["1. Star Topology (Money Mule)", "2. Circular Topology (Layering)", "3. Synthetic Identity (Device Farm)"],
+        "Select Network Topology:",
+        ["1. Star Topology (Fan-In/Mule)", "2. Circular Topology (Layering Loop)", "3. Shared Resource (Synthetic Identity)"],
         horizontal=True
     )
 
     col_net, col_desc = st.columns([3, 1])
 
     with col_net:
-        # Create Plot
+        # Keep using Matplotlib/NetworkX here as it handles circular layouts better for GNN visualization
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        # --- SCENARIO 1: STAR TOPOLOGY (MULE) ---
+        # --- SCENARIO 1: STAR TOPOLOGY ---
         if "Star" in crime_type:
             G = nx.DiGraph()
+            G.add_node("HUB", label="TARGET\n(Aggregator)", color='#FF5252', pos=(0, 0))
             
-            # 1. Central Node (The Mule) - Position (0,0)
-            G.add_node("MULE", label="⚠️ MULE\n(Sinkhole)", color='#FF5252', pos=(0, 0))
-            
-            # 2. Victims (Outer Circle) - Calculated positions
-            victims = ["Victim 1", "Victim 2", "Victim 3", "Victim 4", "Victim 5"]
+            senders = ["Acct 1", "Acct 2", "Acct 3", "Acct 4", "Acct 5"]
             radius = 1.5
             import math
-            
-            for i, v in enumerate(victims):
-                # Calculate angle for perfect circle distribution
-                angle = (2 * math.pi * i) / len(victims)
+            for i, v in enumerate(senders):
+                angle = (2 * math.pi * i) / len(senders)
                 x = radius * math.cos(angle)
                 y = radius * math.sin(angle)
-                
                 G.add_node(v, label=v, color='#81D4FA', pos=(x, y))
-                G.add_edge(v, "MULE") # Arrow points TOWARDS Mule
+                G.add_edge(v, "HUB")
 
-            desc_title = "The Money Mule"
+            desc_title = "Star Topology"
             desc_text = """
-            **The Fan-In Attack:**
-            Money flows from multiple outer nodes into one central node.
+            **Structure:**
+            Multiple unrelated nodes directing funds to a single central node within a short time window.
             
-            **Detection:**
-            High **In-Degree Centrality**. The Red node is receiving funds from too many unrelated sources.
+            **Indicator:**
+            High In-Degree Centrality with low Out-Degree on the source nodes.
             """
 
-        # --- SCENARIO 2: CIRCULAR TOPOLOGY (LAYERING) ---
+        # --- SCENARIO 2: CIRCULAR TOPOLOGY ---
         elif "Circular" in crime_type:
             G = nx.DiGraph()
-            
-            # Perfect Triangle Coordinates
-            # Top, Bottom-Left, Bottom-Right
-            G.add_node("A", label="Account A\n(Placement)", color='#FFD54F', pos=(0, 1))       
-            G.add_node("B", label="Account B\n(Layering)", color='#FFD54F', pos=(-0.86, -0.5)) 
-            G.add_node("C", label="Account C\n(Integration)", color='#FFD54F', pos=(0.86, -0.5))
-            
-            # Edges forming the loop
+            G.add_node("A", label="Entity A", color='#FFD54F', pos=(0, 1))       
+            G.add_node("B", label="Entity B", color='#FFD54F', pos=(-0.86, -0.5)) 
+            G.add_node("C", label="Entity C", color='#FFD54F', pos=(0.86, -0.5))
             G.add_edges_from([("A", "B"), ("B", "C"), ("C", "A")])
             
-            desc_title = "The Wash Cycle"
+            desc_title = "Closed Loop"
             desc_text = """
-            **The Loop Attack:**
-            Money circulates A → B → C → A to generate fake volume or hide the source.
+            **Structure:**
+            Funds circulate through a closed chain (A→B→C→A) to artificially inflate volume or obfuscate origin.
             
-            **Detection:**
-            **Cycle Detection (DFS)** finds closed loops in the transaction graph.
+            **Indicator:**
+            Cycle detection algorithm returns True; Net displacement of funds is zero.
             """
 
-        # --- SCENARIO 3: SYNTHETIC IDENTITY (GHOST) ---
+        # --- SCENARIO 3: SYNTHETIC IDENTITY ---
         elif "Synthetic" in crime_type:
-            G = nx.Graph() # Undirected (Shared Resource)
+            G = nx.Graph()
+            G.add_node("DEV", label="DEVICE_ID\n(Shared)", color='#212121', pos=(0, 0))
             
-            # Central Device (Black Box)
-            G.add_node("DEVICE", label="📱 DEVICE_ID\n(iPhone 15)", color='#212121', pos=(0, 0))
-            
-            # Fake Users (Outer Circle)
-            users = ["Rahul", "Amit", "Sneha", "Pooja", "Raj"]
+            users = ["User A", "User B", "User C", "User D", "User E"]
             radius = 1.5
             import math
-            
             for i, u in enumerate(users):
                 angle = (2 * math.pi * i) / len(users)
                 x = radius * math.cos(angle)
                 y = radius * math.sin(angle)
-                G.add_node(u, label=u, color='#E040FB', pos=(x, y)) # Purple
-                G.add_edge(u, "DEVICE")
+                G.add_node(u, label=u, color='#E040FB', pos=(x, y))
+                G.add_edge(u, "DEV")
 
-            desc_title = "The Fraud Farm"
+            desc_title = "Bipartite Projection"
             desc_text = """
-            **Device Collision:**
-            Multiple 'Unrelated' identities are accessing bank services from the **exact same hardware**.
+            **Structure:**
+            Multiple distinct identities associated with a single physical attribute (Device ID or IP).
             
-            **Detection:**
-            **Bipartite Projection** reveals the shared device link.
+            **Indicator:**
+            High degree centrality on a non-transactional node (Device/IP).
             """
 
-        # --- COMMON DRAWING LOGIC (Fixed Visibility) ---
+        # --- DRAWING ---
         pos = nx.get_node_attributes(G, 'pos')
         colors = nx.get_node_attributes(G, 'color').values()
         labels = nx.get_node_attributes(G, 'label')
         
-        # 1. Draw Nodes
-        nx.draw_networkx_nodes(G, pos, ax=ax, 
-            node_size=6000, 
-            node_color=colors, 
-            edgecolors='black', 
-            linewidths=2
-        )
+        nx.draw_networkx_nodes(G, pos, ax=ax, node_size=6000, node_color=colors, edgecolors='black', linewidths=2)
         
-        # 2. Draw Edges (Thick & Visible)
-        # We determine arrow style based on graph type
         is_directed = G.is_directed()
         nx.draw_networkx_edges(G, pos, ax=ax, 
-            edge_color='#455A64', 
-            width=3, 
-            arrowstyle='-|>' if is_directed else '-', 
-            arrowsize=30, 
-            node_size=6000, # Stops arrow at circle edge
-            connectionstyle="arc3,rad=0.05" # Slight curve for style
-        )
+            edge_color='#455A64', width=3, arrowstyle='-|>' if is_directed else '-', arrowsize=30, 
+            node_size=6000, connectionstyle="arc3,rad=0.05")
         
-        # 3. Draw Labels (Centered)
-        nx.draw_networkx_labels(G, pos, ax=ax, 
-            labels=labels, 
-            font_size=9, 
-            font_weight="bold", 
-            font_family="sans-serif",
-            font_color="white" if "Synthetic" in crime_type else "black" # White text for black device node
-        )
+        nx.draw_networkx_labels(G, pos, ax=ax, labels=labels, font_size=9, font_weight="bold", font_family="sans-serif", 
+                                font_color="white" if "Synthetic" in crime_type else "black")
         
-        # Cleanup
-        ax.margins(0.20) # Zoom out slightly so nothing is cut off
+        ax.margins(0.20)
         ax.axis('off')
         st.pyplot(fig)
 
     with col_desc:
-        st.error(f"### 🕸️ {desc_title}")
+        st.error(f"### {desc_title}")
         st.info(desc_text)
 
 # ==========================================
-# TAB 4: RANDOM FOREST (PATTERNS)
+# TAB 4: RANDOM FOREST (FEATURE IMPORTANCE)
 # ==========================================
 with tab4:
-    st.subheader("Visualizing 'The Pattern' (Random Forest)")
-    st.markdown("The **Random Forest** learns from the past. Which features matter most?")
+    st.subheader("Feature Importance Ranking")
+    st.markdown("Analysis of the Random Forest Decision Tree weighting.")
     
     features = pd.DataFrame({
-        'Feature': ['Amount_vs_Avg', 'Location_Mismatch', 'Device_New?', 'Hour_of_Day', 'Beneficiary_Age'],
-        'Importance': [0.45, 0.30, 0.15, 0.08, 0.02]
+        'Feature Name': ['Velocity_Deviation (Amount > Avg)', 'Geospatial_Mismatch', 'Device_New_Flag', 'Time_Since_Last_Txn', 'Beneficiary_Risk_Score'],
+        'Importance Score': [0.45, 0.30, 0.15, 0.08, 0.02]
     })
     
     fig_feat = px.bar(
-        features, x='Importance', y='Feature', orientation='h', color='Importance',
-        color_continuous_scale='Viridis', title="Decision Tree Feature Weighting"
+        features, x='Importance Score', y='Feature Name', orientation='h', color='Importance Score',
+        color_continuous_scale='Viridis', title="Model Weighting Distribution"
     )
     st.plotly_chart(fig_feat, use_container_width=True)
     
     st.info("""
-    **Interpretation:**
-    **'Amount_vs_Avg'** is the strongest signal. A sudden 500% spike in transfer amount triggers the block.
+    **Technical Interpretation:**
+    The model assigns the highest weight (0.45) to **Velocity Deviation**, indicating that statistical spikes in transfer amounts are the primary predictor of fraud in the current dataset.
     """)

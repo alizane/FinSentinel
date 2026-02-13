@@ -4,11 +4,14 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import pandas as pd
-from sqlalchemy import create_engine
+# UPDATED: Importing your central engine instead of local create_engine
+from database import get_engine
 
 # --- DATABASE CONNECTION ---
-def get_engine():
-    return create_engine(f'postgresql://postgres:Hiking%40786@localhost:5432/fraud_detection_db')
+# REPLACED: No longer hardcoding the password here. 
+# This now uses the function from your database.py file.
+def get_db_engine():
+    return get_engine()
 
 # --- DATA MODEL (Upgraded to include device) ---
 class Transaction(BaseModel):
@@ -21,7 +24,9 @@ app = FastAPI()
 
 # --- FRAUD DETECTION LOGIC (Upgraded) ---
 def get_fraud_verdict(customer_name: str, new_tx_amount: float, new_beneficiary_name: str, new_device: str):
-    engine = get_engine()
+    # UPDATED: Calling the new engine function
+    engine = get_db_engine()
+    
     # Fetch more historical data for a richer profile
     query = f"SELECT amount, beneficiary_name, device_used FROM transactions WHERE customer_name = '{customer_name}' AND is_fraud = 0"
     history_df = pd.read_sql(query, engine)
