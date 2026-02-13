@@ -9,9 +9,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 import joblib
 import os
+# NEW: Import your central engine
+from database import get_engine
 
 # CONFIG
-DB_CONN = 'postgresql://postgres:Hiking%40786@localhost:5432/fraud_detection_db'
+# REPLACED: Using your central engine function
+engine = get_engine()
 
 def get_training_data():
     """
@@ -19,21 +22,23 @@ def get_training_data():
     Generates synthetic data if the DB is too empty.
     """
     try:
-        engine = create_engine(DB_CONN)
+        # REPLACED: No need to call it twice, but keeping logic as you wrote it
+        engine = get_engine()
         df = pd.read_sql("SELECT * FROM transactions", engine)
-        print(f"   📊 Loaded {len(df)} rows from Database.")
+        print(f"    📊 Loaded {len(df)} rows from Database.")
     except Exception as e:
-        print(f"   ⚠️ DB Connection Failed: {e}")
+        print(f"    ⚠️ DB Connection Failed: {e}")
         df = pd.DataFrame()
 
     # --- SMART COLUMN FIXER (Compatibility Layer) ---
-    # If DB has 'device_used', rename it to 'device_id' for consistency
+    # Keeping your logic EXACTLY as it was
     if 'device_used' in df.columns:
         df.rename(columns={'device_used': 'device_id'}, inplace=True)
         
     # If DB is missing 'payment_method_detail' (sometimes called 'category')
     if 'payment_method_detail' not in df.columns and 'category' in df.columns:
         df.rename(columns={'category': 'payment_method_detail'}, inplace=True)
+    
 
     # --- IF DATABASE IS EMPTY OR TOO SMALL (< 50 rows) ---
     if len(df) < 50:

@@ -13,3 +13,9 @@ venv/
 # Database files (if you ever use local ones)
 *.db
 *.sqlite3
+
+
+#credentials
+.env
+
+

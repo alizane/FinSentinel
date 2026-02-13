@@ -2,19 +2,21 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine
 import plotly.express as px
+# NEW: Import your central engine logic
+from database import get_engine
 
 # 1. Config & Setup
 st.set_page_config(page_title="Customer 360", page_icon="👤", layout="wide")
-DB_CONN = 'postgresql://postgres:Hiking%40786@localhost:5432/fraud_detection_db'
 
-# Create a global engine for direct queries later
-engine = create_engine(DB_CONN)
+# REPLACED: Hardcoded DB_CONN and engine setup removed
+# This now pulls credentials from your secure .env file
+engine = get_engine()
 
 @st.cache_data
 def load_data():
     try:
-        # We use a separate connection for the initial load
-        conn = create_engine(DB_CONN)
+        # UPDATED: Using the central engine instead of creating a local one with a password
+        conn = get_engine()
         try:
             df = pd.read_sql("SELECT * FROM v_enriched_transactions", conn)
         except:

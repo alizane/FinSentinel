@@ -5,10 +5,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 import networkx as nx
 import numpy as np
+# NEW: Import your central engine logic
+from database import get_engine
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="FinSentinel: Overview", layout="wide", page_icon="🏦")
-DB_CONN = 'postgresql://postgres:Hiking%40786@localhost:5432/fraud_detection_db'
+
+# REPLACED: DB_CONN string removed to protect your password
+# The engine is now managed via database.py and .env
 
 if st.button("🔄 Force Refresh Data"):
     st.cache_data.clear()
@@ -17,13 +21,16 @@ if st.button("🔄 Force Refresh Data"):
 @st.cache_data(ttl=5)
 def load_data():
     try:
-        engine = create_engine(DB_CONN)
+        # UPDATED: Using the central engine function
+        engine = get_engine()
         try:
             df = pd.read_sql('SELECT * FROM v_enriched_transactions ORDER BY timestamp DESC', engine)
         except:
             df = pd.read_sql('SELECT * FROM transactions ORDER BY timestamp DESC', engine)
+        
         df['timestamp'] = pd.to_datetime(df['timestamp'])
-        if 'customer_name' not in df.columns: df['customer_name'] = "User_" + df['customer_id'].astype(str)
+        if 'customer_name' not in df.columns: 
+            df['customer_name'] = "User_" + df['customer_id'].astype(str)
         return df
     except Exception as e:
         st.error(f"DB Error: {e}")

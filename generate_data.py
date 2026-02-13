@@ -4,16 +4,20 @@ from sqlalchemy import create_engine, text
 from faker import Faker
 import random
 from datetime import datetime, timedelta
+# Import the engine logic
+from database import get_engine
 
 # ==========================================
 # 1. SETUP & CONFIGURATION
 # ==========================================
-DB_CONN = 'postgresql://postgres:Hiking%40786@localhost:5432/fraud_detection_db'
+# REPLACED: DB_CONN string and hardcoded create_engine
+engine = get_engine() 
+
 NUM_TRANSACTIONS = 105000  # Fixed as requested
 NUM_CUSTOMERS = 5000       # Pool of distinct users
 faker = Faker('en_IN')     # Indian Names context
 
-engine = create_engine(DB_CONN)
+# (Your functions calculate_time_period, master_setup, etc. continue exactly as they were below)
 
 def calculate_time_period(hour):
     if 5 <= hour < 12: return 'Morning'

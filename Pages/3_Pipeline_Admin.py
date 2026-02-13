@@ -3,10 +3,14 @@ from sqlalchemy import create_engine, text
 import pandas as pd
 import subprocess
 import sys
+# NEW: Import your central engine logic
+from database import get_engine
 
 st.set_page_config(page_title="Pipeline Admin", layout="wide", page_icon="⚙️")
-DB_CONN = 'postgresql://postgres:Hiking%40786@localhost:5432/fraud_detection_db'
-engine = create_engine(DB_CONN)
+
+# REPLACED: Hardcoded DB_CONN and engine setup removed
+# This now pulls credentials from your .env file
+engine = get_engine()
 
 st.title("⚙️ Data Pipeline Control Panel")
 
@@ -33,6 +37,7 @@ st.divider()
 # Status
 def get_count(table):
     try:
+        # UPDATED: Using the central engine for status counts
         with engine.connect() as conn:
             return conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
     except:

@@ -14,8 +14,11 @@ from judges.pattern_model import PatternModel
 from judges.anomaly_model import AnomalyModel
 from judges.network_model import NetworkModel
 
-DB_CONN = 'postgresql://postgres:Hiking%40786@localhost:5432/fraud_detection_db'
-engine = create_engine(DB_CONN)
+# NEW: Import your central engine and config
+from database import get_engine, get_db_config
+
+# REPLACED: Hardcoded DB_CONN removed
+engine = get_engine()
 
 app = FastAPI()
 
@@ -30,7 +33,10 @@ app.add_middleware(
 try:
     pattern_engine = PatternModel()
     anomaly_engine = AnomalyModel()
-    network_engine = NetworkModel(DB_CONN)
+    
+    # UPDATED: Passing the secure config string to the NetworkModel
+    network_engine = NetworkModel(get_db_config())
+    
     print("✅ Models Loaded Successfully")
 except Exception as e:
     print(f"⚠️ Warning: Models not loaded. {e}")
